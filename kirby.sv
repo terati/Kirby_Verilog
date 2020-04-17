@@ -18,7 +18,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
                              Reset,              // Active-high reset signal
                              frame_clk,          // The clock indicating a new frame (~60Hz)
                input [9:0]   DrawX, DrawY,       // Current pixel coordinates
-               output logic  is_Kirby,             // Whether current pixel belongs to Kirby or background
+               output logic  is_kirby,             // Whether current pixel belongs to Kirby or background
 					input [7:0]	  keycode,
 					output [9:0]  Kirby_X_Pos, Kirby_Y_Pos
               );
@@ -41,6 +41,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 			Kirby_Y_Motion = 0;
 			Kirby_X_Motion_in = 0;
 			Kirby_Y_Motion_in = 0;
+		
 	 end
 	 
     //////// Do not modify the always_ff blocks. ////////
@@ -63,10 +64,14 @@ module  Kirby ( input         Clk,                // 50 MHz clock
         end
         else
         begin
+				Kirby_X_Pos <= Kirby_X_Center;
+				Kirby_Y_Pos <= Kirby_Y_Center;
+		  /*
             Kirby_X_Pos <= Kirby_X_Pos_in;
             Kirby_Y_Pos <= Kirby_Y_Pos_in;
             Kirby_X_Motion <= Kirby_X_Motion_in;
             Kirby_Y_Motion <= Kirby_Y_Motion_in;
+				*/
         end
     end
     //////// Do not modify the always_ff blocks. ////////
@@ -139,10 +144,10 @@ module  Kirby ( input         Clk,                // 50 MHz clock
     assign DistY = DrawY - Kirby_Y_Pos;
     assign Size = Kirby_Size;
     always_comb begin
-        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos - 33) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos - 33)) 
-            is_Kirby = 1'b1;
+        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos + 33) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos + 33)) 
+            is_kirby = 1'b1;
         else
-            is_Kirby = 1'b0;
+            is_kirby = 1'b0;
       
     end
     

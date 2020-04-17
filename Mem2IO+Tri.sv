@@ -17,7 +17,7 @@ module  Mem2IO ( 	input logic Clk, Reset,
 						input logic [19:0]  ADDR, 
 						input logic CE, UB, LB, OE, WE,
 						input logic [15:0] Data_from_CPU, Data_from_SRAM,
-						output logic [15:0] Data_out, Data_to_SRAM,
+						output logic [15:0] Data_out, Data_to_SRAM
 					 );
 
    
@@ -26,6 +26,7 @@ module  Mem2IO ( 	input logic Clk, Reset,
     begin 
         if (WE && ~OE) 
 				Data_out = Data_from_SRAM;
+		  else Data_out = '0;
     end
 
     // Pass data from CPU to SRAM
@@ -33,9 +34,9 @@ module  Mem2IO ( 	input logic Clk, Reset,
 
 	// Write to LEDs when WE is active and address is xFFFF.
 	always_ff @ (posedge Clk) begin 
-		if (Reset) 
-		else if ( ~WE & (ADDR[15:0] == 16'hFFFF) ) 
-			hex_data <= Data_from_CPU;
+		//if (Reset) 
+		//else if ( ~WE & (ADDR[15:0] == 16'hFFFF) ) 
+	
     end
        
 

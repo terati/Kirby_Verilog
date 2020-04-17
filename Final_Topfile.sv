@@ -13,7 +13,7 @@
 //-------------------------------------------------------------------------
 
 
-module finalproject( input               CLOCK_50,
+module Final_Topfile( input               CLOCK_50,
              input        [3:0]  KEY,          //bit 0 is set up as Reset
              output logic [6:0]  HEX0, HEX1,
              // VGA Interface 
@@ -44,15 +44,15 @@ module finalproject( input               CLOCK_50,
                                  DRAM_WE_N,    //SDRAM Write Enable
                                  DRAM_CS_N,    //SDRAM Chip Select
                                  DRAM_CLK,      //SDRAM Clock
-				 output logic 			CE, UB, LB, OE, WE,
-				 output logic [19:0] ADDR,
-				 inout wire [15:0] 	Data
+				 output logic 			SRAM_CE_N, SRAM_CE_UB, SRAM_LB_N, SRAM_OE_N, SRAM_WE_N,
+				 output logic [19:0] SRAM_ADDR,
+				 inout wire   [15:0] SRAM_DQ
                     );
     
     logic Reset_h, Clk, is_kirby;
     logic [7:0] keycode, Red, Green, Blue;
 	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos;
-	 logic [8:0] index;
+	 logic [7:0] index;
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -127,7 +127,7 @@ module finalproject( input               CLOCK_50,
 	 );
     
     // Which signal should be frame_clk?
-    kirby kirby_instance(
+    Kirby kirby_instance(
 							.Clk,
 							.Reset(Reset_h),
 							.frame_clk(VGA_VS),
@@ -151,7 +151,7 @@ module finalproject( input               CLOCK_50,
 										.VGA_R,
 										.VGA_G,
 										.VGA_B,
-										.ADDR
+										.ADDR(SRAM_ADDR)
 	 );
 	 
 	 color_mapper_two quantizer(
@@ -164,14 +164,14 @@ module finalproject( input               CLOCK_50,
 	 
 	 
 	 Mem2IO sram(
-					.Clk,
-					.Reset,
-					.ADDR,
-					.CE,
-					.UB,
-					.LB,
-					.OE,
-					.WE,
+					.Clk(VGA_CLK),
+					.Reset(Reset_h),
+					.ADDR(SRAM_ADDR),
+					.CE(SRAM_CE_N),
+					.UB(SRAM_UB_N),
+					.LB(SRAM_LB_N),
+					.OE(SRAM_OE_N),
+					.WE(SRAM_WE_N),
 					.Data_from_CPU(),
 					.Data_from_SRAM(Data_from_SRAM),
 					.Data_out(index),
@@ -180,18 +180,18 @@ module finalproject( input               CLOCK_50,
 	 
     
 	 tristate #(.N(16)) trimod(
-									.Clk,
-									.tristate_output_enable(~WE),
+									.Clk(VGA_CLK),
+									.tristate_output_enable(~SRAM_WE_N),
 									.Data_write(Data_to_SRAM),
 									.Data_read(Data_from_SRAM),
-									.Data(Data)
+									.Data(SRAM_DQ)
 	 );
 	 
-	 assign CE = 1'b0;
-	 assign UB = 1'b0;
-	 assign LB = 1'b0;
-	 assign WE = 1'b1; //I assume that we are never writing. 
-	 assign OE = 1'b0;
+	 assign SRAM_CE_N = 1'b0;
+	 assign SRAM_UB_N = 1'b0;
+	 assign SRAM_LB_N = 1'b0;
+	 assign SRAM_WE_N = 1'b1; //I assume that we are never writing. 
+	 assign SRAM_OE_N = 1'b0;
 	 
     // Display keycode on hex display
     HexDriver hex_inst_0 (keycode[3:0], HEX0);

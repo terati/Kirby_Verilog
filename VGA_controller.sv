@@ -100,3 +100,12 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
     end
     
 endmodule
+
+
+
+
+
+
+
+
+
