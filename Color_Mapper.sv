@@ -49,9 +49,12 @@ module  color_mapper ( input              is_kirby,            // Whether curren
 				temp0 = ('0);
 				temp1 = ('0);
 				ADDR = '0;
-            Red = 8'h3f; 
+				Red=8'haa;
+				Green=8'h55;
+				Blue=8'h55;
+            /*Red = 8'h3f; 
             Green = 8'h00;
-            Blue = 8'h7f - {1'b0, DrawX[9:3]};
+            Blue = 8'h7f - {1'b0, DrawX[9:3]}; */
         end
     end 
     
@@ -407,9 +410,14 @@ begin
 end
 else if ((index==8'b111010))
 begin
+    Red=8'haa;
+    Green=8'h55;
+    Blue=8'h55;
+/*
     Red=8'h55;
     Green=8'h9f;
     Blue=8'haa;
+	 */
 end
 else if ((index==8'b111011))
 begin
@@ -1595,9 +1603,9 @@ begin
 end
 else
 begin
-    Red=8'hff ;
-    Green=8'hff;
-    Blue=8'hff;
+    Red=8'h00 ;
+    Green=8'h00;
+    Blue=8'h00;
 end
 end
 endmodule

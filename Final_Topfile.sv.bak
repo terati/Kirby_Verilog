@@ -13,7 +13,7 @@
 //-------------------------------------------------------------------------
 
 
-module Final_Topfile( input               CLOCK_50,
+module lab8( input               CLOCK_50,
              input        [3:0]  KEY,          //bit 0 is set up as Reset
              output logic [6:0]  HEX0, HEX1,
              // VGA Interface 
@@ -43,17 +43,12 @@ module Final_Topfile( input               CLOCK_50,
                                  DRAM_CKE,     //SDRAM Clock Enable
                                  DRAM_WE_N,    //SDRAM Write Enable
                                  DRAM_CS_N,    //SDRAM Chip Select
-                                 DRAM_CLK,      //SDRAM Clock
-				 output logic 			SRAM_CE_N, SRAM_CE_UB, SRAM_LB_N, SRAM_OE_N, SRAM_WE_N,
-				 output logic [19:0] SRAM_ADDR,
-				 inout wire   [15:0] SRAM_DQ
+                                 DRAM_CLK      //SDRAM Clock
                     );
     
-    logic Reset_h, Clk, is_kirby;
-    logic [7:0] keycode, Red, Green, Blue;
-	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos;
-	 logic [7:0] index;
-	 logic [7:0] test;
+    logic Reset_h, Clk;
+    logic [7:0] keycode;
+	 logic [9:0] DrawX, DrawY;
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -63,7 +58,7 @@ module Final_Topfile( input               CLOCK_50,
     logic [1:0] hpi_addr;
     logic [15:0] hpi_data_in, hpi_data_out;
     logic hpi_r, hpi_w, hpi_cs, hpi_reset;
-	 logic [15:0] Data_from_SRAM, Data_to_SRAM;
+	 logic is_ball;
     
     // Interface between NIOS II and EZ-OTG chip
     hpi_io_intf hpi_io_inst(
@@ -87,7 +82,7 @@ module Final_Topfile( input               CLOCK_50,
     );
      
      // You need to make sure that the port names here match the ports in Qsys-generated codes.
-     final_projectqs nios_system(
+     lab7_part2_soc nios_system(
                              .clk_clk(Clk),         
                              .reset_reset_n(1'b1),    // Never reset NIOS
                              .sdram_wire_addr(DRAM_ADDR), 
@@ -128,85 +123,33 @@ module Final_Topfile( input               CLOCK_50,
 	 );
     
     // Which signal should be frame_clk?
-    Kirby kirby_instance(
+    ball ball_instance(
 							.Clk,
 							.Reset(Reset_h),
 							.frame_clk(VGA_VS),
 							.DrawX,
 							.DrawY,
-							.is_kirby,
-							.keycode,
-							.Kirby_X_Pos, 
-							.Kirby_Y_Pos
+							.is_ball,
+							.keycode
 	 );
     
     color_mapper color_instance(
-										.is_kirby,
-										.Kirby_X_Pos,
-										.Kirby_Y_Pos,
+										.is_ball,
 										.DrawX,
 										.DrawY,
-										.sRed(Red),
-										.sGreen(Green),
-										.sBlue(Blue),
 										.VGA_R,
 										.VGA_G,
-										.VGA_B,
-										.ADDR(SRAM_ADDR)
+										.VGA_B
 	 );
-	 
-	 color_mapper_two quantizer(
-										.index,
-										.Red,
-										.Green,
-										.Blue
-	 );
-	 
-	 
-	 
-	 Mem2IO sram(
-					.Clk,
-					.Reset(Reset_h),
-					.ADDR(SRAM_ADDR),
-					.CE(SRAM_CE_N),
-					.UB(SRAM_UB_N),
-					.LB(SRAM_LB_N),
-					.OE(SRAM_OE_N),
-					.WE(SRAM_WE_N),
-					.Data_from_CPU(),
-					.Data_from_SRAM(SRAM_DQ),
-					.Data_out(index),
-					.Data_to_SRAM(Data_to_SRAM),
-					.out(test)
-	 );
-	 
     
-	/* tristate #(.N(16)) trimod(
-									.Clk(VGA_CLK),
-									.tristate_output_enable(~SRAM_WE_N),
-									.Data_write(Data_to_SRAM),
-									.Data_read(Data_from_SRAM),
-									.Data(SRAM_DQ)   
-	 );*/
-	 
-	 HexDriver hex0(
-						.In0(test[3:0]),
-						.Out0(HEX0)
-	 );
-	 
-	 HexDriver hex1(
-						.In0(test[6:4]),
-						.Out0(HEX1)
-	 );
-	 
-	 assign SRAM_CE_N = 1'b0;
-	 assign SRAM_UB_N = 1'b0;
-	 assign SRAM_LB_N = 1'b0;
-	 assign SRAM_WE_N = 1'b1; //I assume that we are never writing. 
-	 assign SRAM_OE_N = 1'b0;
-	 
     // Display keycode on hex display
- //   HexDriver hex_inst_0 (keycode[3:0], HEX0);
-  //  HexDriver hex_inst_1 (keycode[7:4], HEX1);
-
+    HexDriver hex_inst_0 (keycode[3:0], HEX0);
+    HexDriver hex_inst_1 (keycode[7:4], HEX1);
+    
+    /**************************************************************************************
+        ATTENTION! Please answer the following quesiton in your lab report! Points will be allocated for the answers!
+        Hidden Question #1/2:
+        What are the advantages and/or disadvantages of using a USB interface over PS/2 interface to
+             connect to the keyboard? List any two.  Give an answer in your Post-Lab.
+    **************************************************************************************/
 endmodule
