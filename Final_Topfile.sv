@@ -15,7 +15,7 @@
 
 module Final_Topfile( input               CLOCK_50,
              input        [3:0]  KEY,          //bit 0 is set up as Reset
-             output logic [6:0]  HEX0, HEX1,
+             output logic [6:0]  HEX0, HEX1, HEX2, HEX3,
              // VGA Interface 
              output logic [7:0]  VGA_R,        //VGA Red
                                  VGA_G,        //VGA Green
@@ -50,7 +50,8 @@ module Final_Topfile( input               CLOCK_50,
                     );
     
     logic Reset_h, Clk, is_kirby;
-    logic [7:0] keycode, Red, Green, Blue;
+	 logic [15:0] keycode;
+    logic [7:0] Red, Green, Blue;
 	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
@@ -189,7 +190,7 @@ module Final_Topfile( input               CLOCK_50,
 									.Data(SRAM_DQ)   
 	 );*/
 	 
-	 HexDriver hex0(
+/*	 HexDriver hex0(
 						.In0(test[3:0]),
 						.Out0(HEX0)
 	 );
@@ -197,7 +198,7 @@ module Final_Topfile( input               CLOCK_50,
 	 HexDriver hex1(
 						.In0(test[6:4]),
 						.Out0(HEX1)
-	 );
+	 );*/
 	 
 	 assign SRAM_CE_N = 1'b0;
 	 assign SRAM_UB_N = 1'b0;
@@ -206,7 +207,9 @@ module Final_Topfile( input               CLOCK_50,
 	 assign SRAM_OE_N = 1'b0;
 	 
     // Display keycode on hex display
- //   HexDriver hex_inst_0 (keycode[3:0], HEX0);
-  //  HexDriver hex_inst_1 (keycode[7:4], HEX1);
+    HexDriver hex_inst_0 (keycode[3:0], HEX0);
+    HexDriver hex_inst_1 (keycode[7:4], HEX1);
 
+    HexDriver hex_inst_2 (keycode[11:8], HEX2);
+    HexDriver hex_inst_3 (keycode[15:12], HEX3);
 endmodule
