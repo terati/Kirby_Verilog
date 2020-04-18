@@ -20,7 +20,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
                input [9:0]   DrawX, DrawY,       // Current pixel coordinates
                output logic  is_kirby,             // Whether current pixel belongs to Kirby or background
 					output [31:0] kirby_dir,   		//kirby direction
-					input [15:0]  keycode,
+					input [31:0]  keycode,
 					output [9:0]  Kirby_X_Pos, Kirby_Y_Pos,
 					output logic  LorR,  				 // L = 0 and R = 1
 					output [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM
@@ -41,6 +41,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 	 logic [31:0] UP_COUNT = 0;
 	 logic [31:0] WALK_COUNT = 0;
 	 logic [31:0] STILL_COUNT = 0;
+	 logic 		  U,D,L,R,A = 0;
 	 
 	 initial begin
 		LorR = 1'b1;
@@ -51,8 +52,37 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 	 //  16 == DOWN
 	 //  04 == LEFT
 	 //  07 == RIGHT
+	 //  28 == ATTACK
     // Detect rising edge of frame_clk
     logic frame_clk_delayed, frame_clk_rising_edge;
+	 
+	     // Compute whether the pixel corresponds to Kirby or background
+    /* Since the multiplicants are required to be signed, we have to first cast them
+       from logic to int (signed by default) before they are multiplied. */
+
+    always_comb begin
+        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos + 32) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos + 32)) 
+            is_kirby = 1'b1;
+        else
+            is_kirby = 1'b0;
+		  
+		  if(keycode[31:24] == 8'h1A | keycode[23:16] == 8'h1A | keycode[15: 8] == 8'h1A | keycode[ 7: 0] == 8'h1A) begin
+				U = 1;
+		  end else U = 0;
+		  if(keycode[31:24] == 8'h16 | keycode[23:16] == 8'h16 | keycode[15: 8] == 8'h16 | keycode[ 7: 0] == 8'h16) begin
+				D = 1;
+		  end else D = 0;
+		  if(keycode[31:24] == 8'h04 | keycode[23:16] == 8'h04 | keycode[15: 8] == 8'h04 | keycode[ 7: 0] == 8'h04) begin
+				L = 1;
+		  end else L = 0;
+		  if(keycode[31:24] == 8'h07 | keycode[23:16] == 8'h07 | keycode[15: 8] == 8'h07 | keycode[ 7: 0] == 8'h07) begin
+				R = 1;
+		  end else R = 0;
+		  if(keycode[31:24] == 8'h28 | keycode[23:16] == 8'h28 | keycode[15: 8] == 8'h28 | keycode[ 7: 0] == 8'h28) begin
+				A = 1;
+		  end else A = 0;
+    end
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
     always_ff @ (posedge frame_clk ) begin
         frame_clk_delayed <= frame_clk;
         frame_clk_rising_edge <= (frame_clk == 1'b1) && (frame_clk_delayed == 1'b0);
@@ -67,7 +97,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 			  curr_press <= keycode;
 		/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	  
 			//FLOATING KIRBY  
-			  if (((prev_press[15:8] == 8'h1A) || (prev_press[7:0] == 8'h1A)) && ((curr_press[15:8] == 8'h1A) || (curr_press[7:0] == 8'h1A))) begin
+			  if (U) begin
 						if(UP_COUNT == 32'hFFFFFFFF) begin
 							UP_COUNT <= 0;
 						end else begin
@@ -86,8 +116,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 			  end
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	  
 			//NORMAL WALKING
-			  else if (((prev_press[15:8] == 8'h04) || (prev_press[7:0] == 8'h04) || (prev_press[7:0] == 8'h07) || (prev_press[7:0] == 8'h07) ) && 
-			  ((curr_press[15:8] == 8'h04) || (curr_press[7:0] == 8'h04) || (curr_press[7:0] == 8'h07) || (curr_press[7:0] == 8'h07) )) begin
+			  if ((L || R) && (~U)) begin
 						if(WALK_COUNT == 32'hFFFFFFFF) begin
 							WALK_COUNT <= 0;
 						end else begin
@@ -106,7 +135,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 			  end 
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			//STAYING STILL KIRBY
-				else begin
+			  if (keycode == 32'd0) begin		
 						if(STILL_COUNT == 32'hFFFFFFFF) begin
 							STILL_COUNT <= 0;
 						end else begin
@@ -137,13 +166,13 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 			  end
 				
 				
-			  if ( (keycode[7:0] == 8'h1A) || (keycode[15:8] == 8'h1A) ) begin  //occurs when you only press UP
+			  if ( U ) begin  //occurs when you only press UP
 					if( Kirby_Y_Pos <= Kirby_Y_Min )
 						Kirby_Y_Pos <= Kirby_Y_Pos + 0;
 					else begin
 						Kirby_Y_Pos <= Kirby_Y_Pos + (~(Kirby_Y_Step) + 1);
 					end
-			  end else if ( keycode[7:0] == 8'h16 || (keycode[15:8] == 8'h16)) begin  //occurs when you only press DOWN
+			  end else if ( D) begin  //occurs when you only press DOWN
 					if( Kirby_Y_Pos + 32 >= Kirby_Y_Max  )
 						Kirby_Y_Pos <= Kirby_Y_Pos + 0;
 					else 
@@ -154,14 +183,14 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 					else 
 						Kirby_Y_Pos <= Kirby_Y_Pos + Kirby_Y_Step;
 			  end
-			  if ( (keycode[7:0] == 8'h04) || (keycode[15:8] == 8'h04) ) begin  //occurs when you only press LEFT
+			  if ( L ) begin  //occurs when you only press LEFT
 					if( Kirby_X_Pos <= Kirby_X_Min  )
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 					else begin
 						Kirby_X_Pos <= Kirby_X_Pos + (~(Kirby_X_Step) + 1);
 					end
 			  end
-			  if ( (keycode[7:0] == 8'h07) || (keycode[15:8] == 8'h07) ) begin  //occurs when you only press RIGHT
+			  if ( R ) begin  //occurs when you only press RIGHT
 					if( Kirby_X_Pos + 32 >= Kirby_X_Max  )
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 					else begin
@@ -173,16 +202,6 @@ module  Kirby ( input         Clk,                // 50 MHz clock
      
     end
     
-    // Compute whether the pixel corresponds to Kirby or background
-    /* Since the multiplicants are required to be signed, we have to first cast them
-       from logic to int (signed by default) before they are multiplied. */
 
-    always_comb begin
-        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos + 32) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos + 32)) 
-            is_kirby = 1'b1;
-        else
-            is_kirby = 1'b0;
-      
-    end
     
 endmodule
