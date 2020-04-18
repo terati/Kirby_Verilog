@@ -49,10 +49,10 @@ module Final_Topfile( input               CLOCK_50,
 				 inout wire   [15:0] SRAM_DQ
                     );
     
-    logic Reset_h, Clk, is_kirby;
+    logic Reset_h, Clk, is_kirby, LorR;
 	 logic [15:0] keycode;
     logic [7:0] Red, Green, Blue;
-	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos;
+	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
 	 logic [7:0] index;
 	 logic [7:0] test;
     
@@ -138,7 +138,9 @@ module Final_Topfile( input               CLOCK_50,
 							.is_kirby,
 							.keycode,
 							.Kirby_X_Pos, 
-							.Kirby_Y_Pos
+							.Kirby_Y_Pos,
+							.LorR,
+							.FLOAT_FSM
 	 );
     
     color_mapper color_instance(
@@ -153,7 +155,11 @@ module Final_Topfile( input               CLOCK_50,
 										.VGA_R,
 										.VGA_G,
 										.VGA_B,
-										.ADDR(SRAM_ADDR)
+										.ADDR(SRAM_ADDR),
+										.LorR,
+										.FLOAT_FSM,
+										.REGWALK_FSM,
+										.STILL_FSM
 	 );
 	 
 	 color_mapper_two quantizer(
@@ -207,7 +213,7 @@ module Final_Topfile( input               CLOCK_50,
 	 assign SRAM_OE_N = 1'b0;
 	 
     // Display keycode on hex display
-    HexDriver hex_inst_0 (keycode[3:0], HEX0);
+    HexDriver hex_inst_0 (FLOAT_FSM[3:0], HEX0);
     HexDriver hex_inst_1 (keycode[7:4], HEX1);
 
     HexDriver hex_inst_2 (keycode[11:8], HEX2);

@@ -16,7 +16,8 @@
 // color_mapper: Decide which color to be output to VGA for each pixel.
 module  color_mapper ( input              is_kirby,            // Whether current pixel belongs to ball 
                                                               //   or background (computed in ball.sv)
-							  input logic  [9:0] Kirby_X_Pos, Kirby_Y_Pos,
+							  input logic 			LorR,
+							  input logic  [9:0] Kirby_X_Pos, Kirby_Y_Pos, FLOAT_FSM, REGWALK_FSM, STILL_FSM,
                        input        [9:0] DrawX, DrawY,       // Current pixel coordinates
 							  input 			[7:0] sRed, sGreen, sBlue,
                        output logic [7:0] VGA_R, VGA_G, VGA_B, // VGA RGB output
@@ -25,8 +26,7 @@ module  color_mapper ( input              is_kirby,            // Whether curren
                      );
     
     logic [7:0] Red, Green, Blue;
-	 logic [19:0] temp0;
-    logic [19:0] temp1;
+	 logic [19:0] temp1,temp2,row,col;
     // Output colors to VGA
     assign VGA_R = Red;
     assign VGA_G = Green;
@@ -35,18 +35,93 @@ module  color_mapper ( input              is_kirby,            // Whether curren
     // Assign color based on is_ball signal
     always_comb
     begin
-        if (is_kirby == 1'b1) 
+        if(is_kirby == 1'b1) 
         begin
-				temp0 = ('0);
-				temp1 = (DrawY - Kirby_Y_Pos);
-            ADDR = (temp1 << 9) + (DrawX - Kirby_X_Pos);
-            Red = sRed;
-            Green = sGreen;
-            Blue = sBlue;
-        end else 
-        begin
+				if(FLOAT_FSM == 10'd0) begin
+					row = 0;
+					col = 0;
+				end else if(FLOAT_FSM == 10'd1) begin
+					row = 0;
+					col = 1;
+				end else if(FLOAT_FSM == 10'd2) begin
+					row = 0;
+					col = 2;
+				end else if(FLOAT_FSM == 10'd3) begin
+					row = 0;
+					col = 3;
+				end else if(FLOAT_FSM == 10'd4) begin
+					row = 0;
+					col = 4;
+				end else if(FLOAT_FSM == 10'd5) begin
+					row = 0;
+					col = 5;
+				end else if(FLOAT_FSM == 10'd6) begin
+					row = 0;
+					col = 6;
+				
+				//--------------------------------------------------
+				end else if(REGWALK_FSM == 10'd0) begin
+					row = 0;
+					col = 0;
+				end else if(REGWALK_FSM == 10'd1) begin
+					row = 0;
+					col = 1;
+				end else if(REGWALK_FSM == 10'd2) begin
+					row = 0;
+					col = 2;
+				end else if(REGWALK_FSM == 10'd3) begin
+					row = 0;
+					col = 3;
+				end else if(REGWALK_FSM == 10'd4) begin
+					row = 0;
+					col = 4;
+				end else if(REGWALK_FSM == 10'd5) begin
+					row = 0;
+					col = 5;
+				end else if(REGWALK_FSM == 10'd6) begin
+					row = 0;
+					col = 6;
+					
+				//--------------------------------------------------
+				end else if(STILL_FSM == 10'd0) begin
+					row = 0;
+					col = 0;
+				end else if(STILL_FSM == 10'd1) begin
+					row = 0;
+					col = 1;
+				end else if(STILL_FSM == 10'd2) begin
+					row = 0;
+					col = 2;
+				end else if(STILL_FSM == 10'd3) begin
+					row = 0;
+					col = 3;
+				end else if(STILL_FSM == 10'd4) begin
+					row = 0;
+					col = 4;
+				end else if(STILL_FSM == 10'd5) begin
+					row = 0;
+					col = 5;
+				end else if(STILL_FSM == 10'd6) begin
+					row = 0;
+					col = 6;					
+				end else begin
+					row = 0;
+					col = 0;
+				end
+				if(LorR) begin			//if kirby is floating faced right
+					temp1 = (DrawY - Kirby_Y_Pos);
+					ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - Kirby_X_Pos);
+				end else begin			//if kirby is floating faced left
+					temp1 = (DrawY - Kirby_Y_Pos); 
+					ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Kirby_X_Pos);
+				end
+					Red = sRed;
+					Green = sGreen;
+					Blue = sBlue;
+        end else begin
             // Background with nice color gradient
-				temp0 = ('0);
+				row = 0;
+				col = 0;
 				temp1 = ('0);
 				ADDR = '0;
 				Red=8'haa;
