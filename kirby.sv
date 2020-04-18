@@ -72,13 +72,6 @@ module  Kirby ( input         Clk,                // 50 MHz clock
         frame_clk_rising_edge <= (frame_clk == 1'b1) && (frame_clk_delayed == 1'b0);
     end
 	
-	initial begin
-	     Kirby_X_Pos <= Kirby_X_Center;
-        Kirby_Y_Pos <= Kirby_Y_Center;
-		  Kirby_X_Motion <= 10'd0;
-        Kirby_Y_Motion <= Kirby_Y_Step;
-	end
-	
     // Update registers
     always_ff @ (posedge Clk)
     begin
@@ -97,8 +90,8 @@ module  Kirby ( input         Clk,                // 50 MHz clock
             Kirby_Y_Motion <= Kirby_Y_Motion_in;
 				
         end
-		  prev_press <= curr_press;
-		  curr_press <= keycode;
+//		  prev_press <= curr_press;
+	//	  curr_press <= keycode;
     end
     //////// Do not modify the always_ff blocks. ////////
     
@@ -154,16 +147,16 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 						end
 				
 				endcase
-				if( Kirby_Y_Pos + 31 >= Kirby_Y_Max ) begin // Kirby is at the bottom edge, BOUNCE!
+				if( Kirby_Y_Pos + 32 >= Kirby_Y_Max ) begin // Kirby is at the bottom edge, BOUNCE!
 					Kirby_Y_Motion_in = 0; //(~(Kirby_Y_Step) + 1'b1);  // 2's complement.  
 					Kirby_X_Motion_in = 0;
 				end else if ( Kirby_Y_Pos <= Kirby_Y_Min) begin // Kirby is at the top edge, BOUNCE!
 					Kirby_Y_Motion_in = 0; 
 					Kirby_X_Motion_in = 0;
-				end else if( Kirby_X_Pos >= Kirby_X_Max ) begin // Kirby is at the bottom edge, BOUNCE!
+				end else if( Kirby_X_Pos +32 >= Kirby_X_Max ) begin // Kirby is at the bottom edge, BOUNCE!
 					Kirby_X_Motion_in = 0; 
 					Kirby_Y_Motion_in = 0;		
-				end else if ( Kirby_X_Pos <= Kirby_X_Min + 31 ) begin // Kirby is at the top edge, BOUNCE!
+				end else if ( Kirby_X_Pos <= Kirby_X_Min ) begin // Kirby is at the top edge, BOUNCE!
 					Kirby_X_Motion_in = 0;
 					Kirby_Y_Motion_in = 0;
 				end
