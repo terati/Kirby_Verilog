@@ -16,8 +16,10 @@
 // color_mapper: Decide which color to be output to VGA for each pixel.
 module  color_mapper ( input              is_kirby,            // Whether current pixel belongs to ball 
                                                               //   or background (computed in ball.sv)
+							  input 					is_block,
 							  input logic 			LorR,
-							  input logic  [9:0] Kirby_X_Pos, Kirby_Y_Pos, FLOAT_FSM, REGWALK_FSM, STILL_FSM,
+							  input logic  [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM,
+							  input logic  [15:0] Block_X_Pos, Block_Y_Pos,Kirby_X_Pos, Kirby_Y_Pos,
                        input        [9:0] DrawX, DrawY,       // Current pixel coordinates
 							  input 			[7:0] sRed, sGreen, sBlue,
                        output logic [7:0] VGA_R, VGA_G, VGA_B, // VGA RGB output
@@ -35,6 +37,10 @@ module  color_mapper ( input              is_kirby,            // Whether curren
     // Assign color based on is_ball signal
     always_comb
     begin
+		  
+		  
+		  
+	 
         if(is_kirby == 1'b1) 
         begin
 				if(FLOAT_FSM == 10'd0) begin
@@ -118,7 +124,18 @@ module  color_mapper ( input              is_kirby,            // Whether curren
 					Red = sRed;
 					Green = sGreen;
 					Blue = sBlue;
-        end else begin
+        end else if(is_block == 1'b1)
+		  begin
+				row = 0;
+				col = 0;
+				temp1 = (DrawY - Block_Y_Pos); 
+				ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Block_X_Pos);
+				Red = sRed;
+				Green = sGreen;
+				Blue = sBlue;
+		  end else 
+		  
+		  begin
             // Background with nice color gradient
 				row = 0;
 				col = 0;

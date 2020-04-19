@@ -49,10 +49,11 @@ module Final_Topfile( input               CLOCK_50,
 				 inout wire   [15:0] SRAM_DQ
                     );
     
-    logic Reset_h, Clk, is_kirby, LorR;
+    logic Reset_h, Clk, is_kirby, LorR, is_block;
 	 logic [31:0] keycode;
     logic [7:0] Red, Green, Blue;
-	 logic [9:0] DrawX, DrawY, Kirby_X_Pos, Kirby_Y_Pos, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
+	 logic [9:0] DrawX, DrawY, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
+	 logic [15:0] Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
     
@@ -136,17 +137,24 @@ module Final_Topfile( input               CLOCK_50,
 							.DrawX,
 							.DrawY,
 							.is_kirby,
+							.is_block,
 							.keycode,
 							.Kirby_X_Pos, 
 							.Kirby_Y_Pos,
+							.Block_X_Pos, 
+							.Block_Y_Pos,
 							.LorR,
-							.FLOAT_FSM
+							.FLOAT_FSM,
+						
 	 );
     
     color_mapper color_instance(
 										.is_kirby,
+										.is_block,
 										.Kirby_X_Pos,
 										.Kirby_Y_Pos,
+										.Block_X_Pos,
+										.Block_Y_Pos,
 										.DrawX,
 										.DrawY,
 										.sRed(Red),
@@ -196,16 +204,7 @@ module Final_Topfile( input               CLOCK_50,
 									.Data(SRAM_DQ)   
 	 );*/
 	 
-/*	 HexDriver hex0(
-						.In0(test[3:0]),
-						.Out0(HEX0)
-	 );
-	 
-	 HexDriver hex1(
-						.In0(test[6:4]),
-						.Out0(HEX1)
-	 );*/
-	 
+
 	 assign SRAM_CE_N = 1'b0;
 	 assign SRAM_UB_N = 1'b0;
 	 assign SRAM_LB_N = 1'b0;

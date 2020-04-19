@@ -18,10 +18,10 @@ module  Kirby ( input         Clk,                // 50 MHz clock
                              Reset,              // Active-high reset signal
                              frame_clk,          // The clock indicating a new frame (~60Hz)
                input [9:0]   DrawX, DrawY,       // Current pixel coordinates
-               output logic  is_kirby,             // Whether current pixel belongs to Kirby or background
+               output logic  is_kirby, is_block,             // Whether current pixel belongs to Kirby or background
 					output [31:0] kirby_dir,   		//kirby direction
 					input [31:0]  keycode,
-					output [9:0]  Kirby_X_Pos, Kirby_Y_Pos,
+					output [15:0]  Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos,
 					output logic  LorR,  				 // L = 0 and R = 1
 					output [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM
               );
@@ -30,11 +30,15 @@ module  Kirby ( input         Clk,                // 50 MHz clock
     parameter [9:0] Kirby_Y_Center = 10'd240;  // Center position on the Y axis
     parameter [9:0] Kirby_X_Min = 10'd0;       // Leftmost point on the X axis
     parameter [9:0] Kirby_X_Max = 10'd639;     // Rightmost point on the X axis
+	 parameter [9:0] xmin_line = 10'd90;
+	 parameter [9:0] xmax_line = 10'd550;
     parameter [9:0] Kirby_Y_Min = 10'd0;       // Topmost point on the Y axis
     parameter [9:0] Kirby_Y_Max = 10'd479;     // Bottommost point on the Y axis
     parameter [9:0] Kirby_X_Step = 10'd1;      // Step size on the X axis
     parameter [9:0] Kirby_Y_Step = 10'd1;      // Step size on the Y axis
     parameter [9:0] Kirby_Size = 10'd4;        // Kirby size
+	 
+	 
     
     logic [15:0] prev_press = 0;
 	 logic [15:0] curr_press = 0;
@@ -42,9 +46,15 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 	 logic [31:0] WALK_COUNT = 0;
 	 logic [31:0] STILL_COUNT = 0;
 	 logic 		  U,D,L,R,A = 0;
+	 logic [31:0] ref_x = 500;
+	 logic [9:0]  move_x = 0;
 	 
 	 initial begin
 		LorR = 1'b1;
+		Kirby_X_Pos = Kirby_X_Center;
+		Kirby_Y_Pos = Kirby_Y_Center;
+		Block_X_Pos = 16'd700;
+		Block_Y_Pos = 16'd200;
 	 end
     //////// Do not modify the always_ff blocks. ////////
 	 
@@ -65,6 +75,13 @@ module  Kirby ( input         Clk,                // 50 MHz clock
             is_kirby = 1'b1;
         else
             is_kirby = 1'b0;
+				
+				
+		  if((DrawX >= Block_X_Pos) && (DrawX < Block_X_Pos + 32) && (DrawY >= Block_Y_Pos) && (DrawY < Block_Y_Pos + 32)) 
+            is_block = 1'b1;
+        else
+            is_block = 1'b0;
+				
 		  
 		  if(keycode[31:24] == 8'h1A | keycode[23:16] == 8'h1A | keycode[15: 8] == 8'h1A | keycode[ 7: 0] == 8'h1A) begin
 				U = 1;
@@ -84,6 +101,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
     end
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
     always_ff @ (posedge frame_clk ) begin
+			
         frame_clk_delayed <= frame_clk;
         frame_clk_rising_edge <= (frame_clk == 1'b1) && (frame_clk_delayed == 1'b0);
 			  Kirby_Y_Pos <= Kirby_Y_Pos + (~(Kirby_Y_Step) + 1);
@@ -191,11 +209,23 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 					end
 			  end
 			  if ( R ) begin  //occurs when you only press RIGHT
-					if( Kirby_X_Pos + 32 >= Kirby_X_Max  )
+					if((Kirby_X_Pos >= xmax_line) && (ref_x <= 10'd700)) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
-					else begin
+						ref_x <= ref_x + 1;
+						move_x <= Kirby_X_Step;
+						Block_X_Pos = Block_X_Pos + ((~Kirby_X_Step) + 1);
+					end else if( Kirby_X_Pos + 32 >= Kirby_X_Max  ) begin
+						Kirby_X_Pos <= Kirby_X_Pos + 0;
+						ref_x <= ref_x + 0;
+						move_x <= 0;
+					end else begin
 						Kirby_X_Pos <= Kirby_X_Pos + Kirby_X_Step;
+						ref_x <= ref_x + 0;
+						move_x <= 0;
 					end
+			  end else begin
+					move_x <= 0;
+					ref_x <= ref_x;
 			  end
 
 	
