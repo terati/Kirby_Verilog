@@ -937,43 +937,43 @@ set_instance_assignment -name IO_STANDARD "2.5 V" -to SRAM_LB_N
 set_instance_assignment -name IO_STANDARD "2.5 V" -to SRAM_CE_N
 set_instance_assignment -name IO_STANDARD "2.5 V" -to SRAM_OE_N
 set_instance_assignment -name IO_STANDARD "2.5 V" -to SRAM_WE_N
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[8]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[9]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[10]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[11]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[12]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[13]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[14]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[15]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[16]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[17]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[18]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[19]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[20]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[21]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_ADDR[22]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[1]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[2]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[3]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[4]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[5]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[6]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_DQ[7]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_CE_N
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_OE_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[8]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[9]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[10]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[11]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[12]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[13]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[14]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[15]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[16]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[17]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[18]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[19]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[20]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[21]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR[22]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[0]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[1]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[2]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[3]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[4]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[5]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[6]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ[7]
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_CE_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_OE_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_RESET_N
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_RY
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_WE_N
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to FL_WP_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_RY
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_WE_N
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_WP_N
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[0]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO[2]
@@ -1138,6 +1138,9 @@ set_location_assignment PIN_E10 -to EX_IO[5]
 set_location_assignment PIN_D9 -to EX_IO[6]
 set_instance_assignment -name IO_STANDARD "3.0-V PCI-X" -to PS2_DAT2
 set_instance_assignment -name IO_STANDARD "2.5 V" -to SRAM_DQ
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_ADDR
+set_instance_assignment -name IO_STANDARD "2.5 V" -to FL_DQ
+set_global_assignment -name SDC_FILE SDC1.sdc
 set_global_assignment -name QIP_FILE final_projectqs/synthesis/final_projectqs.qip
 set_global_assignment -name SYSTEMVERILOG_FILE Mem2IO+Tri.sv
 set_global_assignment -name SYSTEMVERILOG_FILE "SRAM controller.sv"
@@ -1149,4 +1152,5 @@ set_global_assignment -name SYSTEMVERILOG_FILE VGA_controller.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hpi_io_intf.sv
 set_global_assignment -name SYSTEMVERILOG_FILE HexDriver.sv
 set_global_assignment -name SYSTEMVERILOG_FILE Color_Mapper.sv
+set_global_assignment -name QIP_FILE SRAMPLL.qip
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

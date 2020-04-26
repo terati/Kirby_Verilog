@@ -43,19 +43,32 @@ module Final_Topfile( input               CLOCK_50,
                                  DRAM_CKE,     //SDRAM Clock Enable
                                  DRAM_WE_N,    //SDRAM Write Enable
                                  DRAM_CS_N,    //SDRAM Chip Select
-                                 DRAM_CLK,      //SDRAM Clock
+                                 DRAM_CLK,     //SDRAM Clock
 				 output logic 			SRAM_CE_N, SRAM_CE_UB, SRAM_LB_N, SRAM_OE_N, SRAM_WE_N,
 				 output logic [19:0] SRAM_ADDR,
-				 inout wire   [15:0] SRAM_DQ
+				 inout  wire  [15:0] SRAM_DQ,
+				 
+				 output logic  		FL_WE_N,      // Write Enable 
+				 output        		FL_WP_N,      // Write Protect / Programming Acceleration
+				 output logic  		FL_RST_N,     // Reset
+				 output        		FL_OE_N,      // Output Enable
+				 output       			FL_CE_N,      // Chip Enable
+				 input         		FL_RY,	 	  // Ready / Busy
+				 inout  wire  [7:0]  FL_DQ,        // Data bus (8 Bits)
+				 output logic [22:0] FL_ADDR       // Address bus (23 Bits)
                     );
     
-    logic Reset_h, Clk, is_kirby, LorR, is_block;
+    logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_block_temp, is_background_temp, is_attack_temp;
+	 logic  is_block,  is_kirby, is_attack, is_nothing;
 	 logic [31:0] keycode;
-    logic [7:0] Red, Green, Blue;
+    reg [7:0] Red, Green, Blue, fred, fgreen, fblue;
 	 logic [9:0] DrawX, DrawY, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
 	 logic [15:0] Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
+	 logic [4:0] which;
+
+	 
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -114,11 +127,12 @@ module Final_Topfile( input               CLOCK_50,
     
     // Use PLL to generate the 25MHZ VGA_CLK.
     // You will have to generate it on your own in simulation.
-    vga_clk vga_clk_instance(.inclk0(Clk), .c0(VGA_CLK));
+   // vga_clk vga_clk_instance(.inclk0(Clk), .c0(VGA_CLK));
     
     // TODO: Fill in the connections for the rest of the modules 
     VGA_controller vga_controller_instance(
 														.Clk,
+														.FAST_CLK,
 														.Reset(Reset_h),
 														.VGA_HS,
 														.VGA_VS,
@@ -126,7 +140,20 @@ module Final_Topfile( input               CLOCK_50,
 														.VGA_BLANK_N,
 														.VGA_SYNC_N,
 														.DrawX,
-														.DrawY
+														.DrawY,
+														.VGA_R, 
+														.VGA_G,
+														.VGA_B,
+														.is_kirby_temp, 
+														.is_block_temp, 
+														.is_kirby, 
+														.is_block,
+														.is_attack,
+														.is_background,
+														//.is_nothing,
+														.Red,
+														.Green,
+														.Blue
 	 );
     
     // Which signal should be frame_clk?
@@ -136,47 +163,64 @@ module Final_Topfile( input               CLOCK_50,
 							.frame_clk(VGA_VS),
 							.DrawX,
 							.DrawY,
-							.is_kirby,
-							.is_block,
+							.is_attack_temp,
+							.is_kirby_temp,
+							.is_block_temp,
+							.is_testblock,
+							.is_kirbysub,
 							.keycode,
 							.Kirby_X_Pos, 
 							.Kirby_Y_Pos,
-							.Block_X_Pos, 
-							.Block_Y_Pos,
 							.LorR,
 							.FLOAT_FSM,
+							.is_kirby,
+							.is_block,
+							.ADDR(SRAM_ADDR)
+							
 						
 	 );
     
-    color_mapper color_instance(
+ /*   color_mapper color_instance(
 										.is_kirby,
 										.is_block,
+										.is_attack,
+										.is_testblock,
+										.is_nothing,
+									//	.which,
 										.Kirby_X_Pos,
 										.Kirby_Y_Pos,
 										.Block_X_Pos,
 										.Block_Y_Pos,
 										.DrawX,
 										.DrawY,
-										.sRed(Red),
-										.sGreen(Green),
-										.sBlue(Blue),
-										.VGA_R,
-										.VGA_G,
-										.VGA_B,
+									//	.VGA_R,
+									//	.VGA_G,
+									//	.VGA_B,
 										.ADDR(SRAM_ADDR),
+										//.FL_ADDR,
 										.LorR,
 										.FLOAT_FSM,
 										.REGWALK_FSM,
-										.STILL_FSM
-	 );
+										.STILL_FSM,
+										.is_kirbysub
+									//	.fred,
+									//	.fgreen,
+									//	.fblue					
+	 ); */
 	 
 	 color_mapper_two quantizer(
-										.index,
+										.index(SRAM_DQ),
 										.Red,
 										.Green,
 										.Blue
 	 );
 	 
+	/* color_mapper_two quantizerforFLASH(
+										.index(FL_DQ[7:0]),
+										.Red(fred),
+										.Green(fgreen),
+										.Blue(fblue)
+	 );*/
 	 
 	 
 	 Mem2IO sram(
@@ -190,10 +234,18 @@ module Final_Topfile( input               CLOCK_50,
 					.WE(SRAM_WE_N),
 					.Data_from_CPU(),
 					.Data_from_SRAM(SRAM_DQ),
-					.Data_out(index),
+					.Data_out(),
 					.Data_to_SRAM(Data_to_SRAM),
 					.out(test)
 	 );
+	 
+	 SRAMPLL fastclock(
+						.areset(),
+						.inclk0(CLOCK_50),
+						.c0(FAST_CLK),
+						.locked()
+	 );
+	 
 	 
     
 	/* tristate #(.N(16)) trimod(
@@ -204,12 +256,20 @@ module Final_Topfile( input               CLOCK_50,
 									.Data(SRAM_DQ)   
 	 );*/
 	 
-
+	 //SRAM forced PINs
 	 assign SRAM_CE_N = 1'b0;
 	 assign SRAM_UB_N = 1'b0;
 	 assign SRAM_LB_N = 1'b0;
 	 assign SRAM_WE_N = 1'b1; //I assume that we are never writing. 
 	 assign SRAM_OE_N = 1'b0;
+	 
+	 //FLASH forced PINs
+	 assign FL_WE_N = 1'b1;	//writing into FLASH is slow so no
+	 assign FL_WP_N = 1'b1;	//used in the factory to accelerate processing
+	 assign FL_RST_N = 1'b1;
+	 assign FL_OE_N = 1'b0;
+	 assign FL_CE_N = 1'b0;
+	 
 	 
     // Display keycode on hex display
     HexDriver hex_inst_0 (keycode[27:24], HEX0);

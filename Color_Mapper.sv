@@ -14,35 +14,35 @@
 //-------------------------------------------------------------------------
 
 // color_mapper: Decide which color to be output to VGA for each pixel.
-module  color_mapper ( input              is_kirby,            // Whether current pixel belongs to ball 
-                                                              //   or background (computed in ball.sv)
-							  input 					is_block,
-							  input logic 			LorR,
+module  color_mapper ( input               is_kirby, is_attack, is_block, is_testblock, is_kirbysub, is_nothing,
+							  input logic 			 LorR,
 							  input logic  [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM,
 							  input logic  [15:0] Block_X_Pos, Block_Y_Pos,Kirby_X_Pos, Kirby_Y_Pos,
-                       input        [9:0] DrawX, DrawY,       // Current pixel coordinates
-							  input 			[7:0] sRed, sGreen, sBlue,
-                       output logic [7:0] VGA_R, VGA_G, VGA_B, // VGA RGB output
+                       input        [9:0]  DrawX, DrawY,       // Current pixel coordinates
 							  output logic [19:0] ADDR
+						
 							  
                      );
     
-    logic [7:0] Red, Green, Blue;
 	 logic [19:0] temp1,temp2,row,col;
     // Output colors to VGA
-    assign VGA_R = Red;
-    assign VGA_G = Green;
-    assign VGA_B = Blue;
+ //   assign VGA_R = Red;
+ //   assign VGA_G = Green;
+ //   assign VGA_B = Blue;
     
     // Assign color based on is_ball signal
     always_comb
     begin
-		  
-		  
-		  
-	 
-        if(is_kirby == 1'b1) 
-        begin
+			ADDR = '0;
+			row = '0;
+			col = '0;
+			temp1 = '0;
+			temp2 = '0;
+       if(is_kirby == 1'b1) 
+       begin
+			if(is_kirbysub) 
+			begin
+				ADDR = '0;
 				if(FLOAT_FSM == 10'd0) begin
 					row = 0;
 					col = 0;
@@ -115,35 +115,33 @@ module  color_mapper ( input              is_kirby,            // Whether curren
 					col = 0;
 				end
 				if(LorR) begin			//if kirby is floating faced right
+					temp2 = '0;
 					temp1 = (DrawY - Kirby_Y_Pos);
 					ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - Kirby_X_Pos);
 				end else begin			//if kirby is floating faced left
+					temp2 = '0;
 					temp1 = (DrawY - Kirby_Y_Pos); 
 					ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Kirby_X_Pos);
 				end
-					Red = sRed;
-					Green = sGreen;
-					Blue = sBlue;
-        end else if(is_block == 1'b1)
-		  begin
-				row = 0;
-				col = 0;
-				temp1 = (DrawY - Block_Y_Pos); 
-				ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Block_X_Pos);
-				Red = sRed;
-				Green = sGreen;
-				Blue = sBlue;
-		  end else 
+			end
 		  
+		  
+		  end else if(is_block == 1'b1)
+		  begin
+				if(is_testblock) begin
+					row = 0;
+					col = 0;
+					temp1 = (DrawY - Block_Y_Pos); 
+					ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Block_X_Pos);
+				end
+		  end else 
 		  begin
             // Background with nice color gradient
 				row = 0;
 				col = 0;
-				temp1 = ('0);
-				ADDR = '0;
-				Red=8'haa;
-				Green=8'h55;
-				Blue=8'h55;
+				temp2 = DrawY;
+				temp1 = (temp2 << 9);
+				ADDR = temp1 + DrawX;
             /*Red = 8'h3f; 
             Green = 8'h00;
             Blue = 8'h7f - {1'b0, DrawX[9:3]}; */
@@ -152,8 +150,12 @@ module  color_mapper ( input              is_kirby,            // Whether curren
     
 endmodule
 
-module color_mapper_two (	input logic [7:0] index,
-									output logic [7:0] Red, Green, Blue
+
+
+
+
+module color_mapper_two (	input wire [7:0] index,
+									output wire [7:0] Red, Green, Blue
 								
 								 );
 always_comb
@@ -502,14 +504,15 @@ begin
 end
 else if ((index==8'b111010))
 begin
+
     Red=8'haa;
     Green=8'h55;
     Blue=8'h55;
 /*
     Red=8'h55;
     Green=8'h9f;
-    Blue=8'haa;
-	 */
+    Blue=8'haa;*/
+	 
 end
 else if ((index==8'b111011))
 begin
