@@ -8,18 +8,18 @@ module  frameRAM
 (
     // 256 colors, 8 bits
 		input [7:0] data_In,
-		input [18:0] write_address, read_address,
+		input [19:0] write_address, read_address,
 		input we, Clk,
 
 		output logic [7:0] data_Out
 );
 
 // mem has width of 8 bits and a total of 640*480 addresses (for each pixel)
-logic [7:0] mem [0:307219];
+logic [7:0] mem [0:49151];
 
 initial
 begin
-
+		$readmemh("sprite_bytes/tetris_I.txt", mem);
 end
 
 // read and write from frameRAM

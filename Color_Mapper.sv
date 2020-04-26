@@ -154,8 +154,8 @@ endmodule
 
 
 
-module color_mapper_two (	input wire [7:0] index,
-									output wire [7:0] Red, Green, Blue
+module color_mapper_two (	input logic [7:0] index,
+									output logic [7:0] Red, Green, Blue
 								
 								 );
 always_comb

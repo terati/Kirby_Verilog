@@ -61,14 +61,15 @@ module Final_Topfile( input               CLOCK_50,
     logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_block_temp, is_background_temp, is_attack_temp;
 	 logic  is_block,  is_kirby, is_attack, is_nothing;
 	 logic [31:0] keycode;
-    reg [7:0] Red, Green, Blue, fred, fgreen, fblue;
+    logic [7:0] Red, Green, Blue, kred, kgreen, kblue;
 	 logic [9:0] DrawX, DrawY, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
 	 logic [15:0] Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
 	 logic [4:0] which;
 
-	 
+	 logic [19:0] KADDR;
+	 logic [7:0] kirbydata;
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -79,6 +80,7 @@ module Final_Topfile( input               CLOCK_50,
     logic [15:0] hpi_data_in, hpi_data_out;
     logic hpi_r, hpi_w, hpi_cs, hpi_reset;
 	 logic [15:0] Data_from_SRAM, Data_to_SRAM;
+	
     
     // Interface between NIOS II and EZ-OTG chip
     hpi_io_intf hpi_io_inst(
@@ -127,7 +129,7 @@ module Final_Topfile( input               CLOCK_50,
     
     // Use PLL to generate the 25MHZ VGA_CLK.
     // You will have to generate it on your own in simulation.
-   // vga_clk vga_clk_instance(.inclk0(Clk), .c0(VGA_CLK));
+   vga_clk vga_clk_instance(.inclk0(Clk), .c0(VGA_CLK));
     
     // TODO: Fill in the connections for the rest of the modules 
     VGA_controller vga_controller_instance(
@@ -153,7 +155,10 @@ module Final_Topfile( input               CLOCK_50,
 														//.is_nothing,
 														.Red,
 														.Green,
-														.Blue
+														.Blue,
+														.kred,
+														.kgreen,
+														.kblue
 	 );
     
     // Which signal should be frame_clk?
@@ -175,7 +180,8 @@ module Final_Topfile( input               CLOCK_50,
 							.FLOAT_FSM,
 							.is_kirby,
 							.is_block,
-							.ADDR(SRAM_ADDR)
+							.ADDR(SRAM_ADDR),
+							.KADDR
 							
 						
 	 );
@@ -215,6 +221,14 @@ module Final_Topfile( input               CLOCK_50,
 										.Blue
 	 );
 	 
+	 color_mapper_two OCMquantizer(
+										.index(kirbydata),
+										.Red(kred),
+										.Green(kgreen),
+										.Blue(kblue)
+	 );
+	 
+	 
 	/* color_mapper_two quantizerforFLASH(
 										.index(FL_DQ[7:0]),
 										.Red(fred),
@@ -246,6 +260,11 @@ module Final_Topfile( input               CLOCK_50,
 						.locked()
 	 );
 	 
+	 
+	 kirbyRAM KRAM (	.Clk,
+							.R_ADDR(KADDR),
+							.data_Out(kirbydata)
+	);
 	 
     
 	/* tristate #(.N(16)) trimod(

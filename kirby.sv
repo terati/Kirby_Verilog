@@ -26,7 +26,8 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 										
 					output logic  LorR,  				 // L = 0 and R = 1
 					output logic [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM,
-					output logic [19:0] ADDR
+					output logic [19:0] ADDR, KADDR
+
               );
     
     parameter [9:0] Kirby_X_Center = 10'd320;  // Center position on the X axis
@@ -2916,15 +2917,13 @@ block200 = 1'b0;
   	  always_comb
     begin
 			ADDR = '0;
+			KADDR = '0;
 			row = '0;
 			col = '0;
 			temp1 = '0;
 			temp2 = '0;
-       if(is_kirby == 1'b1) 
-       begin
 			if(is_kirbysub) 
 			begin
-				ADDR = '0;
 				if(FLOAT_FSM == 10'd1) begin
 					row = 0;
 					col = 8;
@@ -3008,18 +3007,18 @@ block200 = 1'b0;
 				if(LorR) begin			//if kirby is floating faced right
 					temp2 = '0;
 					temp1 = (DrawY - Kirby_Y_Pos);
-					ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - Kirby_X_Pos);
+					KADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - Kirby_X_Pos);
 				end else begin			//if kirby is floating faced left
 					temp2 = '0;
 					temp1 = (DrawY - Kirby_Y_Pos); 
-					ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Kirby_X_Pos);
+					KADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - Kirby_X_Pos);
 				end
 			end
 		  
 		  
-		  end else if(is_block == 1'b1)
-		  begin
-				if(block0) begin
+if(is_block == 1'b1)
+begin
+	if(block0) begin
       row = 20;
       col = 13;
       temp1 = (DrawY - block0_Y_Pos);
@@ -4024,17 +4023,15 @@ end else if(block200) begin
       col = 2;
       temp1 = (DrawY - block200_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block200_X_Pos);
-	end		
-				
-				
+	end					
 		  end else 
 		  begin
             // Background with nice color gradient
 				row = 0;
 				col = 0;
-				temp2 = DrawY;
-				temp1 = (temp2 << 9);
-				ADDR = temp1 + DrawX;
+				temp2 = 0;
+				temp1 = 0;
+				ADDR = 0;
             /*Red = 8'h3f; 
             Green = 8'h00;
             Blue = 8'h7f - {1'b0, DrawX[9:3]}; */
