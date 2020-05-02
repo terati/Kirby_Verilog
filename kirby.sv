@@ -19,31 +19,31 @@ module  Kirby ( input         Clk,                // 50 MHz clock
                              frame_clk,          // The clock indicating a new frame (~60Hz)
 					input logic   is_kirby, is_block,
                input logic [9:0]   DrawX, DrawY,       // Current pixel coordinates
-               output logic  is_kirby_temp, is_block_temp, is_attack_temp, is_testblock, is_kirbysub,          // Whether current pixel belongs to Kirby or background
+               output logic  is_kirby_temp, is_waddle_temp, is_block_temp, is_attack_temp, is_testblock, is_kirbysub,          // Whether current pixel belongs to Kirby or background
 					output [31:0] kirby_dir,   		//kirby direction
 					input [31:0]  keycode,
 					output [15:0]  Kirby_X_Pos, Kirby_Y_Pos, 
 										
 					output logic  LorR,  				 // L = 0 and R = 1
 					output logic [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM,
-					output logic [19:0] ADDR, KADDR
+					output logic [19:0] ADDR, KADDR, WADDR
 
               );
     
     parameter [9:0] Kirby_X_Center = 10'd320;  // Center position on the X axis
     parameter [9:0] Kirby_Y_Center = 10'd240;  // Center position on the Y axis
     parameter [9:0] Kirby_X_Min = 10'd0;       // Leftmost point on the X axis
-    parameter [9:0] Kirby_X_Max = 10'd639;     // Rightmost point on the X axis
+    parameter [9:0] Kirby_X_Max = 10'd512;     // Rightmost point on the X axis
 	 parameter [9:0] xmin_line = 10'd90;
-	 parameter [9:0] xmax_line = 10'd550;
+	 parameter [9:0] xmax_line = 10'd450;
     parameter [9:0] Kirby_Y_Min = 10'd0;       // Topmost point on the Y axis
     parameter [9:0] Kirby_Y_Max = 10'd479;     // Bottommost point on the Y axis
-    parameter [9:0] Kirby_X_Step = 10'd1;      // Step size on the X axis
-    parameter [9:0] Kirby_Y_Step = 10'd1;      // Step size on the Y axis
+    parameter [9:0] Kirby_X_Step = 10'd2;      // Step size on the X axis
+    parameter [9:0] Kirby_Y_Step = 10'd2;      // Step size on the Y axis
     parameter [9:0] Kirby_Size = 10'd4;        // Kirby size
 	 
+
 	 
-    
     logic [15:0] prev_press = 0;
 	 logic [15:0] curr_press = 0;
 	 logic [31:0] UP_COUNT = 0;
@@ -53,7 +53,7 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 	 logic [31:0] ref_x = 32'd500;
 	 logic [9:0]  move_x = 0;
 	 logic 		  NO_DOWN, NO_UP, NO_LEFT, NO_RIGHT;
-	 
+	 logic [15:0] rotate, rcounter;
 	 logic [19:0] temp1,temp2,row,col;
 	 logic [15:0] block0_X_Pos, block0_Y_Pos,
 block1_X_Pos, block1_Y_Pos,
@@ -255,7 +255,17 @@ block196_X_Pos, block196_Y_Pos,
 block197_X_Pos, block197_Y_Pos,
 block198_X_Pos, block198_Y_Pos,
 block199_X_Pos, block199_Y_Pos,
-block200_X_Pos, block200_Y_Pos;
+block200_X_Pos, block200_Y_Pos,
+
+block201_X_Pos, block201_Y_Pos, //sky
+
+block202_X_Pos, block202_Y_Pos, //ground
+
+block203_X_Pos, block203_Y_Pos, //sky2
+
+block204_X_Pos, block204_Y_Pos; //ground2
+
+ 
 	 logic block0,
 block1,
 block2,
@@ -456,12 +466,58 @@ block196,
 block197,
 block198,
 block199,
-block200;
+block200,
+
+block201,
+block202,
+block203,
+block204;
+
+
+    logic frame_clk_delayed, frame_clk_rising_edge;
+	 logic SPIKE, hurtflag, healthstate;
+	 logic [15:0] hurtcounter;
+	 logic [3:0] health;
+	 
+	 	 
+    logic [15:0] waddle0_X_Pos, waddle0_Y_Pos;
+	 logic 		  is_waddle_temp, waddle0attacked;
+	 logic [2:0] waddle0state;
+	 logic [9:0] waddle0_right_count, walk0_left_count, waddle0_hit_count;
+	 
+	 localparam waddle0walkright = 3'd0;
+	 localparam waddle0walkleft = 3'd1;
+	 localparam waddle0hit = 3'd2;
+	 localparam waddle0dead = 3'd4;
+	
+	localparam healthidle = 1'b0;
+	localparam healthwait = 1'b0;
+	
+	 logic [5:0] waddle0_right_FSM, waddle0_left_FSM;
+
 	 
 	 initial begin
+		move_x = '0;
+	   rotate = 16'd0;
+		rcounter = 16'd0;
 		LorR = 1'b1;
 		Kirby_X_Pos = 10'd40;
-		Kirby_Y_Pos = 10'd576;
+		Kirby_Y_Pos = 10'd240;
+		
+	  health = 4'd5;
+	  hurtcounter = 16'd0;
+	  hurtflag = 0;
+	  
+	  waddle0state = 3'd0;
+	  waddle0_right_count = 10'd0;
+	  waddle0_left_count = 10'd0;
+	  waddle0_hit_count = 10'd0;
+	  waddle0_X_Pos = 16'd135;
+	  waddle0_Y_Pos = 16'd416;
+	  waddle0_right_FSM = 6'd0;
+	  waddle0_left_FSM = 6'd0;
+	  waddle0attacked = 1'b0;
+		
 		block0_X_Pos = 16'd0;
 		block0_Y_Pos = 16'd0;
 		block1_X_Pos = 16'd0;
@@ -864,6 +920,16 @@ block200;
 		block199_Y_Pos = 16'd128;
 		block200_X_Pos = 16'd416;
 		block200_Y_Pos = 16'd160;
+		
+		block201_X_Pos = 16'd256; //sky1
+		block201_Y_Pos = 16'd0;  
+		block202_X_Pos = 16'd416;  //ground1
+		block202_Y_Pos = 16'd352;
+		
+		block203_X_Pos = 16'd768;  //sky2
+		block203_Y_Pos = 16'd0;		
+		block204_X_Pos = 16'd928;	//ground2
+		block204_Y_Pos = 16'd352;
 	 end
     //////// Do not modify the always_ff blocks. ////////
 	 
@@ -873,15 +939,12 @@ block200;
 	 //  07 == RIGHT
 	 //  28 == ATTACK
     // Detect rising edge of frame_clk
-    logic frame_clk_delayed, frame_clk_rising_edge;
-	 logic SPIKE;
-	 
-	     // Compute whether the pixel corresponds to Kirby or background
-    /* Since the multiplicants are required to be signed, we have to first cast them
-       from logic to int (signed by default) before they are multiplied. */
 
     always_comb begin
+
+		  
 		  is_attack_temp = 1'b0;
+		  is_waddle0_temp = 1'b0;
 		  is_kirby_temp = 1'b0;
 		  is_block_temp = 1'b0;
 		  is_testblock = 1'b0;
@@ -1087,6 +1150,11 @@ block197 = 1'b0;
 block198 = 1'b0;
 block199 = 1'b0;
 block200 = 1'b0;
+
+block201 = 1'd0;
+block202 = 1'd0;
+block203 = 1'd0;
+block204 = 1'd0;
 		  
 		  NO_DOWN = 1'b0;
 		  NO_UP = 1'b0;
@@ -1098,6 +1166,11 @@ block200 = 1'b0;
             is_kirby_temp = 1'b1;
 				is_kirbysub = 1'b1;
 		  end
+		  
+		  if ((DrawX >= waddle0_X_Pos) && (DrawX < waddle0_X_Pos + 32) && (DrawY >= waddle0_Y_Pos) && (DrawY < waddle0_Y_Pos + 32)) begin
+            is_waddle0_temp = 1'b1;
+		  end  
+		  
 		
 		///////////////////////////////////////////////////////////////////////////////////////
 		//block0 (x,y) = (0,0)
@@ -1929,7 +2002,7 @@ block200 = 1'b0;
 		  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block135 (x,y) = (0,0)
 		  if((DrawX >= block135_X_Pos) && (DrawX < block135_X_Pos + 32) && (DrawY >= block135_Y_Pos) && (DrawY < block135_Y_Pos + 32)) begin
-				block135 = 1'b1;
+				block135 = 1'b0;
         end 
 		  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block136 (x,y) = (0,0)
@@ -2023,7 +2096,7 @@ block200 = 1'b0;
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block150 (x,y) = (0,0)
 		  if((DrawX >= block150_X_Pos) && (DrawX < block150_X_Pos + 32) && (DrawY >= block150_Y_Pos) && (DrawY < block150_Y_Pos + 32)) begin
-				block150 = 1'b1;
+				block150 = 1'b0;
         end  
 		  if((Kirby_X_Pos + 16 >= block150_X_Pos) && (Kirby_X_Pos + 16 < block150_X_Pos + 32) && (Kirby_Y_Pos >= block150_Y_Pos) && (Kirby_Y_Pos < block150_Y_Pos + 32)) begin
             NO_UP = 1'b1;
@@ -2031,7 +2104,7 @@ block200 = 1'b0;
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block151 (x,y) = (0,0)
 		  if((DrawX >= block151_X_Pos) && (DrawX < block151_X_Pos + 32) && (DrawY >= block151_Y_Pos) && (DrawY < block151_Y_Pos + 32)) begin
-				block151 = 1'b1;
+				block151 = 1'b0;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block152 (x,y) = (0,0)
@@ -2115,7 +2188,7 @@ block200 = 1'b0;
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block165 (x,y) = (0,0)
 		  if((DrawX >= block165_X_Pos) && (DrawX < block165_X_Pos + 32) && (DrawY >= block165_Y_Pos) && (DrawY < block165_Y_Pos + 32)) begin
-				block165 = 1'b1;
+				block165 = 1'b0;
         end 
 		  if((Kirby_X_Pos + 16 >= block165_X_Pos) && (Kirby_X_Pos + 16 < block165_X_Pos + 32) && (Kirby_Y_Pos >= block165_Y_Pos) && (Kirby_Y_Pos < block165_Y_Pos + 32)) begin
             NO_UP = 1'b1;
@@ -2123,12 +2196,12 @@ block200 = 1'b0;
 		  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block166 (x,y) = (0,0)
 		  if((DrawX >= block166_X_Pos) && (DrawX < block166_X_Pos + 32) && (DrawY >= block166_Y_Pos) && (DrawY < block166_Y_Pos + 32)) begin
-				block166 = 1'b1;
+				block166 = 1'b0;
         end 
 		  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block167 (x,y) = (0,0)
 		  if((DrawX >= block167_X_Pos) && (DrawX < block167_X_Pos + 32) && (DrawY >= block167_Y_Pos) && (DrawY < block167_Y_Pos + 32)) begin
-				block167 = 1'b1;
+				block167 = 1'b0;
         end 
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block168 (x,y) = (0,0)
@@ -2197,7 +2270,7 @@ block200 = 1'b0;
 		 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block180 (x,y) = (0,0)
 		  if((DrawX >= block180_X_Pos) && (DrawX < block180_X_Pos + 32) && (DrawY >= block180_Y_Pos) && (DrawY < block180_Y_Pos + 32)) begin
-				block180 = 1'b1;
+				block180 = 1'b0;
         end 
 		  if((Kirby_X_Pos + 16 >= block180_X_Pos) && (Kirby_X_Pos + 16 < block180_X_Pos + 32) && (Kirby_Y_Pos >= block180_Y_Pos) && (Kirby_Y_Pos < block180_Y_Pos + 32)) begin
             NO_UP = 1'b1;
@@ -2205,16 +2278,16 @@ block200 = 1'b0;
 			  		///////////////////////////////////////////////////////////////////////////////////////
 		//block181 (x,y) = (0,0)
 		  if((DrawX >= block181_X_Pos) && (DrawX < block181_X_Pos + 32) && (DrawY >= block181_Y_Pos) && (DrawY < block181_Y_Pos + 32)) begin
-				block181 = 1'b1;
+				block181 = 1'b0;
         end 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block182 (x,y) = (0,0)
 		  if((DrawX >= block182_X_Pos) && (DrawX < block182_X_Pos + 32) && (DrawY >= block182_Y_Pos) && (DrawY < block182_Y_Pos + 32)) begin
-				block182 = 1'b1;
+				block182 = 1'b0;
         end 
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block183 (x,y) = (0,0)
 		  if((DrawX >= block183_X_Pos) && (DrawX < block183_X_Pos + 32) && (DrawY >= block183_Y_Pos) && (DrawY < block183_Y_Pos + 32)) begin
-				block183 = 1'b1;
+				block183 = 1'b0;
         end 
 		 if((Kirby_X_Pos + 16 >= block183_X_Pos) && (Kirby_X_Pos + 16 < block183_X_Pos + 32) && (Kirby_Y_Pos + 32 >= block183_Y_Pos) && (Kirby_Y_Pos + 32 < block183_Y_Pos + 32)) begin
             NO_DOWN = 1'b1;
@@ -2295,25 +2368,25 @@ block200 = 1'b0;
 		  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block195 (x,y) = (0,0)
 		  if((DrawX >= block195_X_Pos) && (DrawX < block195_X_Pos + 32) && (DrawY >= block195_Y_Pos) && (DrawY < block195_Y_Pos + 32)) begin
-				block195 = 1'b1;
+				block195 = 1'b0;
         end 
 		  if((Kirby_X_Pos + 16 >= block195_X_Pos) && (Kirby_X_Pos + 16 < block195_X_Pos + 32) && (Kirby_Y_Pos >= block195_Y_Pos) && (Kirby_Y_Pos < block195_Y_Pos + 32)) begin
             NO_UP = 1'b1;
         end 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block196 (x,y) = (0,0)
 		  if((DrawX >= block196_X_Pos) && (DrawX < block196_X_Pos + 32) && (DrawY >= block196_Y_Pos) && (DrawY < block196_Y_Pos + 32)) begin
-				block196 = 1'b1;
+				block196 = 1'b0;
         end 	
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block197 (x,y) = (0,0)
 		  if((DrawX >= block197_X_Pos) && (DrawX < block197_X_Pos + 32) && (DrawY >= block197_Y_Pos) && (DrawY < block197_Y_Pos + 32)) begin
-				block197 = 1'b1;
+				block197 = 1'b0;
         end 
 	
 			///////////////////////////////////////////////////////////////////////////////////////
 		//block198 (x,y) = (0,0)
 		  if((DrawX >= block198_X_Pos) && (DrawX < block198_X_Pos + 32) && (DrawY >= block198_Y_Pos) && (DrawY < block198_Y_Pos + 32)) begin
-				block198 = 1'b1;
+				block198 = 1'b0;
         end 
 		 if((Kirby_X_Pos + 16 >= block198_X_Pos) && (Kirby_X_Pos + 16 < block198_X_Pos + 32) && (Kirby_Y_Pos + 32 >= block198_Y_Pos) && (Kirby_Y_Pos + 32 < block198_Y_Pos + 32)) begin
             NO_DOWN = 1'b1;
@@ -2327,13 +2400,43 @@ block200 = 1'b0;
  		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block199 (x,y) = (0,0)
 		  if((DrawX >= block199_X_Pos) && (DrawX < block199_X_Pos + 32) && (DrawY >= block199_Y_Pos) && (DrawY < block199_Y_Pos + 32)) begin
-				block199 = 1'b1;
+				block199 = 1'b0;
         end 
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block200 (x,y) = (0,0)
 		  if((DrawX >= block200_X_Pos) && (DrawX < block200_X_Pos + 32) && (DrawY >= block200_Y_Pos) && (DrawY < block200_Y_Pos + 32)) begin
 				block200 = 1'b1;
         end 
+		  
+		  
+		  
+		    ///////////////////////////////////////////////////////////////////////////////////////
+		//block201 (x,y) = (0,0) //sky1
+		  if(((DrawX >= block201_X_Pos) || (block201_X_Pos > 5000)) && (DrawX < block201_X_Pos + 512) && (DrawY >= block201_Y_Pos) && (DrawY < block201_Y_Pos + 352)) begin
+				block201 = 1'b1;
+        end 
+		  
+		 		//block202 (x,y) = (0,0) //ground1
+		  if(((DrawX >= block202_X_Pos) || (block202_X_Pos > 5000)) && (DrawX < block202_X_Pos + 512) && (DrawY >= block202_Y_Pos) && (DrawY < block202_Y_Pos + 128)) begin
+				block202 = 1'b1;
+        end 
+		   if((Kirby_X_Pos + 16 >= block202_X_Pos) && (Kirby_X_Pos + 16 < block202_X_Pos + 32) && (Kirby_Y_Pos + 32 >= block202_Y_Pos) && (Kirby_Y_Pos + 32 < block202_Y_Pos + 32)) begin
+            NO_DOWN = 1'b1;
+        end  
+		  
+		  		 		//block203 (x,y) = (0,0) //sky2
+		  if(((DrawX >= block203_X_Pos) || (block203_X_Pos > 5000)) && (DrawX < block203_X_Pos + 512) && (DrawY >= block203_Y_Pos) && (DrawY < block203_Y_Pos + 352)) begin
+				block203 = 1'b1;
+        end 
+		  
+		  		 		//block204 (x,y) = (0,0) //ground1
+		  if(((DrawX >= block204_X_Pos) || (block204_X_Pos > 5000)) && (DrawX < block204_X_Pos + 512) && (DrawY >= block204_Y_Pos) && (DrawY < block204_Y_Pos + 128)) begin
+				block204 = 1'b1;
+        end 
+ 
+		  
+		  
+		  
  		/*  		
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block1 (x,y) = (0,0)
@@ -2452,6 +2555,122 @@ block200 = 1'b0;
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			  if(rcounter <= 2) begin
+					  if(rotate <= 512) begin
+							rotate <= rotate + 1;
+					  end else begin
+							rotate <= 0;
+					  end
+					  rcounter <= rcounter + 1;
+			  end else begin
+						rcounter <= 0;
+			  end
+			  
+			 
+			  
+
+			  
+			  
+			  case (healthstate)
+					healthidle: begin
+						health <= health - 1;
+						hurtflag <= 0;
+						if(SPIKE )) begin
+								healthstate <= 1;
+						end
+						healthstate <= healthwait;
+					end
+					
+					healthwait: begin
+						hurtflag <= 1;
+						if(hurtcounter <= 30) begin
+							hurtcounter <= hurtcounter + 1;
+							healthstate <= healthwait;
+						end else begin
+							hurtcounter <= 0;
+							healthstate <= healthidle;
+						end				
+					end 
+			  endcase
+			  
+			  
+			  
+			  
+			  case (waddle0state)
+					waddle0walkright: begin 
+						if(waddle0attacked) begin
+							waddle0_right_count <= 0;
+							waddle0_right_FSM <= 0;
+							waddle0state <= waddle0hit:
+						end
+						waddle_X_Pos <= waddle_X_Pos + 1 + move_x;
+						if(waddle0_right_count <= 150) begin
+							waddle0_right_count <= waddle0_right_count + 1;
+							if((waddle0_right_count%(8) == 0) && (waddle0_right_count !== 0)) begin
+								if(waddle0_right_FSM == 10'd8) begin
+									waddle0_right_FSM <= 10'd1;
+								end else begin 
+									waddle0_right_FSM <=  waddle0_right_FSM + 10'd1;
+								end
+							end	
+							waddle0state <= waddle0walkright;
+						end else begin
+							waddle0_right_FSM <= 0;
+							waddle0_right_count <= 0;
+							waddle0state <= waddle0walkleft;
+						end
+					end
+					
+					
+					waddle0walkleft: begin
+						if(waddle0attacked) begin
+							waddle0_left_count <= 0;
+							waddle0_left_FSM <= 0;
+							waddle0state <= waddle0hit:
+						end
+						waddle_X_Pos <= waddle_X_Pos + 1 + move_x;
+						if(waddle0_left_count <= 150) begin
+							waddle0_left_count <= waddle0_left_count + 1;
+							if((waddle0_left_count%(8) == 0) && (waddle0_left_count !== 0)) begin
+								if(waddle0_left_FSM == 10'd8) begin
+									waddle0_left_FSM <= 10'd1;
+								end else begin 
+									waddle0_left_FSM <=  waddle0_left_FSM + 10'd1;
+								end
+							end	
+							waddle0state <= waddle0walkleft;
+						end else begin
+							waddle0_left_FSM <= 0;
+							waddle0_left_count <= 0;
+							waddle0state <= waddle0walkright;
+						end
+					end
+	
+					waddle0hit: begin
+						if(waddle0_hit_count <= 75) begin
+							waddle0_hit_count <= waddle0_hit_count + 1;
+							waddle0state <= waddle0hit;
+						end else begin
+							waddle0_hit_count <= 0;
+							waddle0state <= waddle0dead;
+						end
+					end
+					
+					
+					waddle0dead: begin
+						waddle_X_Pos <= 16'd135;
+						waddle_Y_Pos <= 16'd616;
+						if(Reset) begin
+							waddle_X_Pos <= 16'd135;
+							waddle_Y_Pos <= 16'd416;
+							waddle0state <= waddle0walkright;
+						end
+					end
+			  endcase
+			  
+			  
+			  
+			  
 			  
 			  if ( (keycode[7:0] == 8'h04) || (keycode[15:8] == 8'h04)) begin  // if LEFT was pressed, mark L
 						LorR <= 0;
@@ -2481,7 +2700,8 @@ block200 = 1'b0;
 					if((Kirby_X_Pos <= xmin_line) && (ref_x >= 10'd500)) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						ref_x <= ref_x - 1;
-						move_x <= ((~Kirby_X_Step) + 1);
+						move_x <= Kirby_X_Step;
+						
 						block0_X_Pos = block0_X_Pos + Kirby_X_Step;
 						block1_X_Pos = block1_X_Pos + Kirby_X_Step;
 						block2_X_Pos = block2_X_Pos + Kirby_X_Step;
@@ -2683,6 +2903,12 @@ block200 = 1'b0;
 						block198_X_Pos = block198_X_Pos + Kirby_X_Step;
 						block199_X_Pos = block199_X_Pos + Kirby_X_Step;
 						block200_X_Pos = block200_X_Pos + Kirby_X_Step;
+						
+						block201_X_Pos = block201_X_Pos + Kirby_X_Step;
+						block202_X_Pos = block202_X_Pos + Kirby_X_Step;
+						block203_X_Pos = block203_X_Pos + Kirby_X_Step;
+						block204_X_Pos = block204_X_Pos + Kirby_X_Step;
+						
 					end else if( (Kirby_X_Pos <= Kirby_X_Min) || (NO_LEFT)  ) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						move_x <= 0;
@@ -2692,11 +2918,14 @@ block200 = 1'b0;
 						move_x <= 0;
 					end
 			  end
-			  if ( R ) begin  //occurs when you only press RIGHT
-					if((Kirby_X_Pos >= xmax_line) && (ref_x <= 10'd700)) begin
+			 else  if ( R ) begin  //occurs when you only press RIGHT
+					if((Kirby_X_Pos >= xmax_line) && (ref_x <= 10'd1000)) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						ref_x <= ref_x + 1;
-						move_x <= Kirby_X_Step;
+						move_x <= ((~Kirby_X_Step) + 1);
+						
+						waddle_X_Pos = waddle_X_Pos + ((~Kirby_X_Step) + 1);
+						
 						block0_X_Pos = block0_X_Pos + ((~Kirby_X_Step) + 1);
 						block1_X_Pos = block1_X_Pos + ((~Kirby_X_Step) + 1);
 						block2_X_Pos = block2_X_Pos + ((~Kirby_X_Step) + 1);
@@ -2898,6 +3127,12 @@ block200 = 1'b0;
 						block198_X_Pos = block198_X_Pos + ((~Kirby_X_Step) + 1);
 						block199_X_Pos = block199_X_Pos + ((~Kirby_X_Step) + 1);
 						block200_X_Pos = block200_X_Pos + ((~Kirby_X_Step) + 1);
+						
+						block201_X_Pos = block201_X_Pos + ((~Kirby_X_Step) + 1);
+						block202_X_Pos = block202_X_Pos + ((~Kirby_X_Step) + 1);
+						block203_X_Pos = block203_X_Pos + ((~Kirby_X_Step) + 1);
+						block204_X_Pos = block204_X_Pos + ((~Kirby_X_Step) + 1);
+						
 					end else if( (Kirby_X_Pos + 32 >= Kirby_X_Max) || (NO_RIGHT)  ) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						ref_x <= ref_x + 0;
@@ -2916,12 +3151,56 @@ block200 = 1'b0;
 	 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   	  always_comb
     begin
+			WADDR = '0;
 			ADDR = '0;
 			KADDR = '0;
 			row = '0;
 			col = '0;
 			temp1 = '0;
 			temp2 = '0;
+			if(is_waddle_temp) 
+			begin
+				if(waddle0_right_FSM != 10'd1) begin
+					row = 0;
+					col = 0;
+				end else if(waddle0_FSM != 10'd2) begin
+					row = 0;
+					col = 1;
+				end else if(waddle0_FSM != 10'd3) begin
+					row = 0;
+					col = 2;
+				end else if(waddle0_FSM != 10'd4) begin
+					row = 0;
+					col = 3;
+				end else if(waddle0_FSM != 10'd5) begin
+					row = 0;
+					col = 4;
+				end else if(waddle0_FSM != 10'd6) begin
+					row = 0;
+					col = 5;
+				end else if(waddle0_FSM != 10'd7) begin
+					row = 0;
+					col = 6;
+				end else if(waddle0_FSM != 10'd8) begin
+					row = 0;
+					col = 7;
+				end else if(waddle0_hit_count != 10'd0)
+					row = 0;
+					col = 9;
+				end
+				if(waddle0_LorR) begin			//if kirby is floating faced right
+					temp2 = '0;
+					temp1 = (DrawY - waddle0_Y_Pos);
+					WADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - waddle0_X_Pos);
+				end else begin			//if kirby is floating faced left
+					temp2 = '0;
+					temp1 = (DrawY - waddle0_Y_Pos); 
+					WADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - waddle0_X_Pos);
+				end
+				
+			end
+			
+			
 			if(is_kirbysub) 
 			begin
 				if(FLOAT_FSM == 10'd1) begin
@@ -3018,7 +3297,8 @@ block200 = 1'b0;
 		  
 if(is_block == 1'b1)
 begin
-	if(block0) begin
+		
+if(block0) begin
       row = 20;
       col = 13;
       temp1 = (DrawY - block0_Y_Pos);
@@ -3234,8 +3514,8 @@ end else if(block42) begin
       temp1 = (DrawY - block42_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block42_X_Pos);
 end else if(block43) begin
-      row = 21;
-      col = 0;
+      row = 23;
+      col = 15;
       temp1 = (DrawY - block43_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block43_X_Pos);
 end else if(block44) begin
@@ -3344,8 +3624,8 @@ end else if(block64) begin
       temp1 = (DrawY - block64_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block64_X_Pos);
 end else if(block65) begin
-      row = 21;
-      col = 3;
+      row = 23;
+      col = 15;
       temp1 = (DrawY - block65_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block65_X_Pos);
 end else if(block66) begin
@@ -3460,7 +3740,7 @@ end else if(block87) begin
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block87_X_Pos);
 end else if(block88) begin
       row = 23;
-      col = 11;
+      col = 15;
       temp1 = (DrawY - block88_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block88_X_Pos);
 end else if(block89) begin
@@ -3520,7 +3800,7 @@ end else if(block99) begin
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block99_X_Pos);
 end else if(block100) begin
       row = 23;
-      col = 15;
+      col = 10;
       temp1 = (DrawY - block100_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block100_X_Pos);
 end else if(block101) begin
@@ -3620,7 +3900,7 @@ end else if(block119) begin
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block119_X_Pos);
 end else if(block120) begin
       row = 20;
-      col = 13;
+      col = 15;
       temp1 = (DrawY - block120_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block120_X_Pos);
 end else if(block121) begin
@@ -3629,33 +3909,33 @@ end else if(block121) begin
       temp1 = (DrawY - block121_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block121_X_Pos);
 end else if(block122) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 1;
       temp1 = (DrawY - block122_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block122_X_Pos);
 end else if(block123) begin
-      row = 23;
-      col = 15;
+      row = 21;
+      col = 2;
       temp1 = (DrawY - block123_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block123_X_Pos);
 end else if(block124) begin
-      row = 23;
-      col = 15;
+      row = 21;
+      col = 2;
       temp1 = (DrawY - block124_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block124_X_Pos);
 end else if(block125) begin
-      row = 23;
-      col = 15;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block125_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block125_X_Pos);
 end else if(block126) begin
-      row = 23;
-      col = 15;
+      row = 21;
+      col = 4;
       temp1 = (DrawY - block126_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block126_X_Pos);
 end else if(block127) begin
-      row = 23;
-      col = 15;
+      row = 21;
+      col = 1;
       temp1 = (DrawY - block127_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block127_X_Pos);
 end else if(block128) begin
@@ -3669,8 +3949,8 @@ end else if(block129) begin
       temp1 = (DrawY - block129_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block129_X_Pos);
 end else if(block130) begin
-      row = 22;
-      col = 15;
+      row = 20;
+      col = 11;
       temp1 = (DrawY - block130_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block130_X_Pos);
 end else if(block131) begin
@@ -3684,8 +3964,8 @@ end else if(block132) begin
       temp1 = (DrawY - block132_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block132_X_Pos);
 end else if(block133) begin
-      row = 21;
-      col = 0;
+      row = 23;
+      col = 15;
       temp1 = (DrawY - block133_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block133_X_Pos);
 end else if(block134) begin
@@ -3699,8 +3979,8 @@ end else if(block135) begin
       temp1 = (DrawY - block135_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block135_X_Pos);
 end else if(block136) begin
-      row = 21;
-      col = 14;
+      row = 20;
+      col = 15;
       temp1 = (DrawY - block136_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block136_X_Pos);
 end else if(block137) begin
@@ -3779,8 +4059,8 @@ end else if(block151) begin
       temp1 = (DrawY - block151_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block151_X_Pos);
 end else if(block152) begin
-      row = 21;
-      col = 1;
+      row = 20;
+      col = 15;
       temp1 = (DrawY - block152_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block152_X_Pos);
 end else if(block153) begin
@@ -3840,7 +4120,7 @@ end else if(block163) begin
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block163_X_Pos);
 end else if(block164) begin
       row = 22;
-      col = 1;
+      col = 3;
       temp1 = (DrawY - block164_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block164_X_Pos);
 end else if(block165) begin
@@ -3859,7 +4139,7 @@ end else if(block167) begin
       temp1 = (DrawY - block167_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block167_X_Pos);
 end else if(block168) begin
-      row = 22;
+      row = 20;
       col = 15;
       temp1 = (DrawY - block168_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block168_X_Pos);
@@ -3910,11 +4190,11 @@ end else if(block177) begin
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block177_X_Pos);
 end else if(block178) begin
       row = 23;
-      col = 2;
+      col = 15;
       temp1 = (DrawY - block178_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block178_X_Pos);
 end else if(block179) begin
-      row = 21;
+      row = 22;
       col = 5;
       temp1 = (DrawY - block179_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block179_X_Pos);
@@ -3939,8 +4219,8 @@ end else if(block183) begin
       temp1 = (DrawY - block183_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block183_X_Pos);
 end else if(block184) begin
-      row = 22;
-      col = 9;
+      row = 20;
+      col = 15;
       temp1 = (DrawY - block184_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block184_X_Pos);
 end else if(block185) begin
@@ -3974,23 +4254,23 @@ end else if(block190) begin
       temp1 = (DrawY - block190_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block190_X_Pos);
 end else if(block191) begin
-      row = 21;
-      col = 2;
+      row = 22;
+      col = 3;
       temp1 = (DrawY - block191_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block191_X_Pos);
 end else if(block192) begin
-      row = 21;
+      row = 22;
       col = 4;
       temp1 = (DrawY - block192_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block192_X_Pos);
 end else if(block193) begin
-      row = 23;
-      col = 18;
+      row = 22;
+      col = 3;
       temp1 = (DrawY - block193_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block193_X_Pos);
 end else if(block194) begin
-      row = 21;
-      col = 5;
+      row = 22;
+      col = 4;
       temp1 = (DrawY - block194_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block194_X_Pos);
 end else if(block195) begin
@@ -4019,11 +4299,31 @@ end else if(block199) begin
       temp1 = (DrawY - block199_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block199_X_Pos);
 end else if(block200) begin
-      row = 21;
-      col = 2;
+      row = 20;
+      col = 15;
       temp1 = (DrawY - block200_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block200_X_Pos);
-	end					
+end else if(block201) begin  //sky1
+      row = 24;
+      col = 0;
+      temp1 = (DrawY - block201_Y_Pos);
+      ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block201_X_Pos) + rotate;
+end else if(block202) begin  //ground1
+      row = 3;
+      col = 0;
+      temp1 = (DrawY - block202_Y_Pos);
+      ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block202_X_Pos);
+end else if(block203) begin  //sky2
+      row = 37;
+      col = 0;
+      temp1 = (DrawY - block203_Y_Pos);
+      ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block203_X_Pos);
+end else if(block204) begin  //ground1 shifted over
+      row = 3;
+      col = 0;
+      temp1 = (DrawY - block204_Y_Pos);
+      ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block204_X_Pos);
+	end	
 		  end else 
 		  begin
             // Background with nice color gradient

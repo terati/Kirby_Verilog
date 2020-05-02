@@ -58,18 +58,18 @@ module Final_Topfile( input               CLOCK_50,
 				 output logic [22:0] FL_ADDR       // Address bus (23 Bits)
                     );
     
-    logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_block_temp, is_background_temp, is_attack_temp;
+    logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_waddle_temp, is_block_temp, is_background_temp, is_attack_temp;
 	 logic  is_block,  is_kirby, is_attack, is_nothing;
 	 logic [31:0] keycode;
-    logic [7:0] Red, Green, Blue, kred, kgreen, kblue;
+    logic [7:0] Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue;
 	 logic [9:0] DrawX, DrawY, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
 	 logic [15:0] Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
 	 logic [4:0] which;
 
-	 logic [19:0] KADDR;
-	 logic [7:0] kirbydata;
+	 logic [19:0] KADDR, WADDR;
+	 logic [7:0] kirbydata, waddledata;
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -148,6 +148,7 @@ module Final_Topfile( input               CLOCK_50,
 														.VGA_B,
 														.is_kirby_temp, 
 														.is_block_temp, 
+														.is_waddle_temp,
 														.is_kirby, 
 														.is_block,
 														.is_attack,
@@ -158,7 +159,10 @@ module Final_Topfile( input               CLOCK_50,
 														.Blue,
 														.kred,
 														.kgreen,
-														.kblue
+														.kblue,
+														.wred,
+														.wgreen,
+														.wblue
 	 );
     
     // Which signal should be frame_clk?
@@ -170,6 +174,7 @@ module Final_Topfile( input               CLOCK_50,
 							.DrawY,
 							.is_attack_temp,
 							.is_kirby_temp,
+							.is_waddle_temp,
 							.is_block_temp,
 							.is_testblock,
 							.is_kirbysub,
@@ -181,7 +186,8 @@ module Final_Topfile( input               CLOCK_50,
 							.is_kirby,
 							.is_block,
 							.ADDR(SRAM_ADDR),
-							.KADDR
+							.KADDR,
+							.WADDR
 							
 						
 	 );
@@ -228,13 +234,12 @@ module Final_Topfile( input               CLOCK_50,
 										.Blue(kblue)
 	 );
 	 
-	 
-	/* color_mapper_two quantizerforFLASH(
-										.index(FL_DQ[7:0]),
-										.Red(fred),
-										.Green(fgreen),
-										.Blue(fblue)
-	 );*/
+	 color_mapper_two OCMquantizer(
+										.index(waddledata),
+										.Red(wred),
+										.Green(wgreen),
+										.Blue(wblue)
+	 );
 	 
 	 
 	 Mem2IO sram(
@@ -264,6 +269,11 @@ module Final_Topfile( input               CLOCK_50,
 	 kirbyRAM KRAM (	.Clk,
 							.R_ADDR(KADDR),
 							.data_Out(kirbydata)
+	);
+	
+	 waddleRAM WRAM (	.Clk,
+							.R_ADDR(WADDR),
+							.data_Out(waddledata)
 	);
 	 
     

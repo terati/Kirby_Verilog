@@ -1,4 +1,5 @@
 
+
   
 //-------------------------------------------------------------------------
 //      VGA controller                                                   --
@@ -38,9 +39,9 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
                                            DrawY,       // vertical coordinate
 												
 								output logic [7:0] VGA_R, VGA_G, VGA_B,
-								input logic		 is_kirby_temp, is_block_temp, is_attack_temp, is_background_temp,
+								input logic		 is_kirby_temp, is_block_temp, is_waddle_temp, is_attack_temp, is_background_temp,
 								output logic 		 is_kirby, is_block, is_attack, is_background,
-								input logic [7:0]  Red, Green, Blue, kred, kgreen, kblue
+								input logic [7:0]  Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue
 								
                         );     
     
@@ -129,6 +130,10 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
 			  VGA_R = kred;
 			  VGA_G = kgreen;
 			  VGA_B = kblue;
+		  else if((wred != 8'haa) && (wgreen != 8'h55) && (wblue != 8'h55) && (is_waddle_temp)) begin
+			  VGA_R = wred;
+			  VGA_G = wgreen;
+			  VGA_B = wblue;
 		  end else begin 
 			  VGA_R = Red;
 			  VGA_G = Green;
@@ -139,9 +144,4 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
     end
     
 endmodule
-
-
-
-
-
 
