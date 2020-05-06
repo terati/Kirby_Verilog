@@ -17,25 +17,27 @@
 module  Kirby ( input         Clk,                // 50 MHz clock
                              Reset,              // Active-high reset signal
                              frame_clk,          // The clock indicating a new frame (~60Hz)
-					input logic   is_kirby, is_block,
+					input logic   is_kirby, is_block, 
                input logic [9:0]   DrawX, DrawY,       // Current pixel coordinates
-               output logic  is_kirby_temp, is_waddle_temp, is_block_temp, is_attack_temp, is_testblock, is_kirbysub,          // Whether current pixel belongs to Kirby or background
+               output logic  is_kirby_temp, is_waddle0_temp, is_block_temp, is_attack_temp, is_testblock, is_kirbysub, is_atk_temp, boss, is_flame,       // Whether current pixel belongs to Kirby or background
 					output [31:0] kirby_dir,   		//kirby direction
 					input [31:0]  keycode,
 					output [15:0]  Kirby_X_Pos, Kirby_Y_Pos, 
 										
 					output logic  LorR,  				 // L = 0 and R = 1
 					output logic [9:0]  FLOAT_FSM, REGWALK_FSM, STILL_FSM,
-					output logic [19:0] ADDR, KADDR, WADDR
+					output logic [19:0] ADDR, KADDR, WADDR, ATKADDR, BATKADDR,
+					output logic BOSSTIME,
+					output logic [3:0] health
 
               );
     
     parameter [9:0] Kirby_X_Center = 10'd320;  // Center position on the X axis
     parameter [9:0] Kirby_Y_Center = 10'd240;  // Center position on the Y axis
     parameter [9:0] Kirby_X_Min = 10'd0;       // Leftmost point on the X axis
-    parameter [9:0] Kirby_X_Max = 10'd512;     // Rightmost point on the X axis
+    parameter [9:0] Kirby_X_Max = 10'd640;     // Rightmost point on the X axis
 	 parameter [9:0] xmin_line = 10'd90;
-	 parameter [9:0] xmax_line = 10'd450;
+	 parameter [9:0] xmax_line = 10'd590;
     parameter [9:0] Kirby_Y_Min = 10'd0;       // Topmost point on the Y axis
     parameter [9:0] Kirby_Y_Max = 10'd479;     // Bottommost point on the Y axis
     parameter [9:0] Kirby_X_Step = 10'd2;      // Step size on the X axis
@@ -49,12 +51,14 @@ module  Kirby ( input         Clk,                // 50 MHz clock
 	 logic [31:0] UP_COUNT = 0;
 	 logic [31:0] WALK_COUNT = 0;
 	 logic [31:0] STILL_COUNT = 0;
+	 logic [31:0] ATK_COUNT = 0;
+	 logic [9:0]  KATKFSM;
 	 logic 		  U,D,L,R,A = 0;
 	 logic [31:0] ref_x = 32'd500;
 	 logic [9:0]  move_x = 0;
 	 logic 		  NO_DOWN, NO_UP, NO_LEFT, NO_RIGHT;
 	 logic [15:0] rotate, rcounter;
-	 logic [19:0] temp1,temp2,row,col;
+	 logic [31:0] temp1,temp2,row,col;
 	 logic [15:0] block0_X_Pos, block0_Y_Pos,
 block1_X_Pos, block1_Y_Pos,
 block2_X_Pos, block2_Y_Pos,
@@ -263,9 +267,19 @@ block202_X_Pos, block202_Y_Pos, //ground
 
 block203_X_Pos, block203_Y_Pos, //sky2
 
-block204_X_Pos, block204_Y_Pos; //ground2
+block204_X_Pos, block204_Y_Pos, //ground2
 
+
+block205_X_Pos, block205_Y_Pos, //boss_background left
+block206_X_Pos, block206_Y_Pos, //boss_background right
+block207_X_Pos, block207_Y_Pos,
  
+boss_X_Pos, boss_Y_Pos, //boss coordinates
+
+f0_X_Pos, f0_Y_Pos,
+f1_X_Pos, f1_Y_Pos,
+f2_X_Pos, f2_Y_Pos;
+
 	 logic block0,
 block1,
 block2,
@@ -471,19 +485,33 @@ block200,
 block201,
 block202,
 block203,
-block204;
+block204,
 
+block205,
+block206,
+block207,
+
+f0,
+f1,
+f2;
 
     logic frame_clk_delayed, frame_clk_rising_edge;
 	 logic SPIKE, hurtflag, healthstate;
 	 logic [15:0] hurtcounter;
-	 logic [3:0] health;
+	 
+	 
+	 
+	 
+	 logic [15:0] atk_X_Pos, atk_Y_Pos;
+	 logic active_atk, atk_enable;
+	 logic [7:0] atkstate = 0;
+	 logic [9:0] atkFSM, atkcount;
 	 
 	 	 
     logic [15:0] waddle0_X_Pos, waddle0_Y_Pos;
-	 logic 		  is_waddle_temp, waddle0attacked;
+	 logic 		  waddle0attacked, waddle0_LorR;
 	 logic [2:0] waddle0state;
-	 logic [9:0] waddle0_right_count, walk0_left_count, waddle0_hit_count;
+	 logic [9:0] waddle0_right_count, waddle0_left_count, waddle0_hit_count;
 	 
 	 localparam waddle0walkright = 3'd0;
 	 localparam waddle0walkleft = 3'd1;
@@ -491,18 +519,34 @@ block204;
 	 localparam waddle0dead = 3'd4;
 	
 	localparam healthidle = 1'b0;
-	localparam healthwait = 1'b0;
+	localparam healthwait = 1'b1;
 	
 	 logic [5:0] waddle0_right_FSM, waddle0_left_FSM;
-
+	 logic [5:0] waddle0_FSM;
+	 
+	 logic [5:0] bstate = 0, bstill_FSM = 0, bfly_FSM = 0, bmid_FSM = 0, bfire_FSM = 0, bswoop_FSM = 0;
+	 logic [15:0] bcounter;
+	 logic bLorR = 0;
+	 logic [3:0] bbcounter = 4'd0;
+	 
+	 
+	 logic [5:0] fstate = 0; 
+	 logic [15:0] fcount;
+	 
+	 
 	 
 	 initial begin
+		
 		move_x = '0;
 	   rotate = 16'd0;
 		rcounter = 16'd0;
 		LorR = 1'b1;
 		Kirby_X_Pos = 10'd40;
 		Kirby_Y_Pos = 10'd240;
+		atk_X_Pos = 16'd40;
+		atk_Y_Pos = 16'd240;
+		active_atk = 1'b0;
+		
 		
 	  health = 4'd5;
 	  hurtcounter = 16'd0;
@@ -514,6 +558,7 @@ block204;
 	  waddle0_hit_count = 10'd0;
 	  waddle0_X_Pos = 16'd135;
 	  waddle0_Y_Pos = 16'd416;
+	  waddle0_FSM = 6'd0;
 	  waddle0_right_FSM = 6'd0;
 	  waddle0_left_FSM = 6'd0;
 	  waddle0attacked = 1'b0;
@@ -930,6 +975,15 @@ block204;
 		block203_Y_Pos = 16'd0;		
 		block204_X_Pos = 16'd928;	//ground2
 		block204_Y_Pos = 16'd352;
+		
+		block205_X_Pos = 16'd0;	//bb left
+		block205_Y_Pos = 16'd0;
+		
+		block206_X_Pos = 16'd512;	//bb right
+		block206_Y_Pos = 16'd0;
+		
+		block207_X_Pos = 16'd512;	
+		block207_Y_Pos = 16'd256;
 	 end
     //////// Do not modify the always_ff blocks. ////////
 	 
@@ -941,8 +995,8 @@ block204;
     // Detect rising edge of frame_clk
 
     always_comb begin
-
-		  
+		  is_atk_temp = 1'b0;
+		//  atk_enable = 1'b0;
 		  is_attack_temp = 1'b0;
 		  is_waddle0_temp = 1'b0;
 		  is_kirby_temp = 1'b0;
@@ -1155,23 +1209,40 @@ block201 = 1'd0;
 block202 = 1'd0;
 block203 = 1'd0;
 block204 = 1'd0;
-		  
+
+block205 = 1'd0; //boss_background left
+block206 = 1'd0;  //boss_background right
+block207 = 1'd0;
+
+f0 = 1'd0;
+f1 = 1'd0;
+f2 = 1'd0;
+		  is_flame = 1'd0;
+		  boss = 1'd0;
+		  BOSSTIME = 1'd0;
 		  NO_DOWN = 1'b0;
 		  NO_UP = 1'b0;
 		  NO_RIGHT = 1'b0;
 		  NO_LEFT = 1'b0;
 		  SPIKE = 1'b0;
 		//kirby character detection
-        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos + 32) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos + 32)) begin
+        if ((DrawX >= Kirby_X_Pos) && (DrawX < Kirby_X_Pos + 32) && (DrawY >= Kirby_Y_Pos) && (DrawY < Kirby_Y_Pos + 32)) begin  //always apparent
             is_kirby_temp = 1'b1;
 				is_kirbysub = 1'b1;
 		  end
-		  
+
+		   if ((DrawX >= atk_X_Pos) && (DrawX < atk_X_Pos + 32) && (DrawY >= atk_Y_Pos) && (DrawY < atk_Y_Pos + 32) && (atk_enable)) begin //always apparent
+            is_atk_temp = 1'b1;
+		  end  
+
+		
+if(is_block) begin		
 		  if ((DrawX >= waddle0_X_Pos) && (DrawX < waddle0_X_Pos + 32) && (DrawY >= waddle0_Y_Pos) && (DrawY < waddle0_Y_Pos + 32)) begin
             is_waddle0_temp = 1'b1;
 		  end  
-		  
-		
+		  if(is_kirby_temp && is_waddle0_temp) begin
+				SPIKE = 1'b1;
+		  end
 		///////////////////////////////////////////////////////////////////////////////////////
 		//block0 (x,y) = (0,0)
 		  if((DrawX >= block0_X_Pos) && (DrawX < block0_X_Pos + 32) && (DrawY >= block0_Y_Pos) && (DrawY < block0_Y_Pos + 32)) begin
@@ -1552,6 +1623,7 @@ block204 = 1'd0;
         end 
 		  if((Kirby_X_Pos + 16 >= block60_X_Pos) && (Kirby_X_Pos + 16 < block60_X_Pos + 32) && (Kirby_Y_Pos >= block60_Y_Pos) && (Kirby_Y_Pos < block60_Y_Pos + 32)) begin
             NO_UP = 1'b1;
+				SPIKE = 1'b1;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block61 (x,y) = (0,0)
@@ -1646,12 +1718,17 @@ block204 = 1'd0;
         end 
 		  if((Kirby_X_Pos + 16 >= block75_X_Pos) && (Kirby_X_Pos + 16 < block75_X_Pos + 32) && (Kirby_Y_Pos >= block75_Y_Pos) && (Kirby_Y_Pos < block75_Y_Pos + 32)) begin
             NO_UP = 1'b1;
+				SPIKE = 1'b1;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block76 (x,y) = (0,0)
 		  if((DrawX >= block76_X_Pos) && (DrawX < block76_X_Pos + 32) && (DrawY >= block76_Y_Pos) && (DrawY < block76_Y_Pos + 32)) begin
 				block76 = 1'b1;
         end 
+		 if((Kirby_X_Pos + 16 >= block76_X_Pos) && (Kirby_X_Pos < block76_X_Pos + 32) && (Kirby_Y_Pos >= block76_Y_Pos) && (Kirby_Y_Pos < block76_Y_Pos + 32)) begin
+				BOSSTIME = 1'd1;
+        end 
+		  
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block77 (x,y) = (0,0)
 		  if((DrawX >= block77_X_Pos) && (DrawX < block77_X_Pos + 32) && (DrawY >= block77_Y_Pos) && (DrawY < block77_Y_Pos + 32)) begin
@@ -1703,6 +1780,7 @@ block204 = 1'd0;
         end 
 		  if((Kirby_X_Pos + 16 >= block84_X_Pos) && (Kirby_X_Pos + 16 < block84_X_Pos + 32) && (Kirby_Y_Pos >= block84_Y_Pos) && (Kirby_Y_Pos < block84_Y_Pos + 32)) begin
             NO_UP = 1'b1;
+				SPIKE = 1'b1;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block85 (x,y) = (0,0)
@@ -1739,6 +1817,7 @@ block204 = 1'd0;
         end 
 		  if((Kirby_X_Pos + 16 >= block90_X_Pos) && (Kirby_X_Pos + 16 < block90_X_Pos + 32) && (Kirby_Y_Pos >= block90_Y_Pos) && (Kirby_Y_Pos < block90_Y_Pos + 32)) begin
             NO_UP = 1'b1;
+				SPIKE = 1'b1;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block91 (x,y) = (0,0)
@@ -1793,6 +1872,7 @@ block204 = 1'd0;
         end 
 		  if((Kirby_X_Pos + 16 >= block99_X_Pos) && (Kirby_X_Pos + 16 < block99_X_Pos + 32) && (Kirby_Y_Pos >= block99_Y_Pos) && (Kirby_Y_Pos < block99_Y_Pos + 32)) begin
             NO_UP = 1'b1;
+				SPIKE = 1'b1;
         end 
 		  		///////////////////////////////////////////////////////////////////////////////////////
 		//block100 (x,y) = (0,0)
@@ -2420,7 +2500,7 @@ block204 = 1'd0;
 		  if(((DrawX >= block202_X_Pos) || (block202_X_Pos > 5000)) && (DrawX < block202_X_Pos + 512) && (DrawY >= block202_Y_Pos) && (DrawY < block202_Y_Pos + 128)) begin
 				block202 = 1'b1;
         end 
-		   if((Kirby_X_Pos + 16 >= block202_X_Pos) && (Kirby_X_Pos + 16 < block202_X_Pos + 32) && (Kirby_Y_Pos + 32 >= block202_Y_Pos) && (Kirby_Y_Pos + 32 < block202_Y_Pos + 32)) begin
+		   if((Kirby_X_Pos + 16 >= block202_X_Pos) && (Kirby_X_Pos + 16 < block202_X_Pos + 512) && (Kirby_Y_Pos + 32 >= block202_Y_Pos) && (Kirby_Y_Pos + 32 < block202_Y_Pos + 32)) begin
             NO_DOWN = 1'b1;
         end  
 		  
@@ -2435,8 +2515,52 @@ block204 = 1'd0;
         end 
  
 		  
+
+end 
+if(is_kirby) begin
+		  		  		 		//block206 (x,y) = (0,0) boss_background right side
+		  if(((DrawX >= block206_X_Pos) || (block206_X_Pos > 5000)) && (DrawX < block206_X_Pos + 128) && (DrawY >= block206_Y_Pos) && (DrawY < block206_Y_Pos + 256) ) begin
+				block206 = 1'b1;
+        end 
 		  
+		  		  		  		 //block205 (x,y) = (0,0)    boss_background left side
+		  if(((DrawX >= block205_X_Pos) || (block205_X_Pos > 5000)) && (DrawX < block205_X_Pos + 512) && (DrawY >= block205_Y_Pos) && (DrawY < block205_Y_Pos + 480) ) begin
+				block205 = 1'b1;
+        end 
 		  
+		  		  		  		 //block207 (x,y) = (0,0)    small right side
+		  if(((DrawX >= block207_X_Pos) || (block207_X_Pos > 5000)) && (DrawX < block207_X_Pos + 128) && (DrawY >= block207_Y_Pos) && (DrawY < block207_Y_Pos + 224) ) begin
+				block207 = 1'b1;
+        end 
+		  
+		  if((is_kirby) && (Kirby_Y_Pos + 32 >= 10'd440)) begin
+				NO_DOWN = 1'b1;
+		  end
+		  
+		  if(Kirby_X_Pos >= 10'd648) begin
+				NO_RIGHT = 1'b1;
+		  end
+		  
+		  if(((DrawX >= boss_X_Pos) || (boss_X_Pos > 5000)) && (DrawX < boss_X_Pos + 96) && (DrawY >= boss_Y_Pos) && (DrawY < boss_Y_Pos + 96)) begin
+				boss = 1'b1;
+        end 
+		  
+		   if(((DrawX >= f0_X_Pos) || (f0_X_Pos > 5000)) && (DrawX < f0_X_Pos + 32) && (DrawY >= f0_Y_Pos) && (DrawY < f0_Y_Pos + 32)) begin
+				f0 = 1'b1;
+				is_flame = 1'b1;
+        end 
+		  
+		   if(((DrawX >= f1_X_Pos) || (f1_X_Pos > 5000)) && (DrawX < f1_X_Pos + 32) && (DrawY >= f1_Y_Pos) && (DrawY < f1_Y_Pos + 32)) begin
+				f1 = 1'b1;
+				is_flame = 1'b1;
+        end 
+		  
+		   if(((DrawX >= f2_X_Pos) || (f2_X_Pos > 5000)) && (DrawX < f2_X_Pos + 32) && (DrawY >= f2_Y_Pos) && (DrawY < f2_Y_Pos + 32)) begin
+				f2 = 1'b1;
+				is_flame = 1'b1;
+        end 
+		  
+end
  		/*  		
 		  ///////////////////////////////////////////////////////////////////////////////////////
 		//block1 (x,y) = (0,0)
@@ -2530,6 +2654,27 @@ block204 = 1'd0;
 					WALK_COUNT <= 0;
 					REGWALK_FSM <= 10'd0;
 			  end 
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////	  
+			//ATTACK
+				if(A) begin
+					if(ATK_COUNT == 32'hFFFFFFFF) begin
+						ATK_COUNT <= 0;
+					end else begin
+						ATK_COUNT <= ATK_COUNT + 1;
+					end
+					if((ATK_COUNT%(8) == 0) && (ATK_COUNT !== 0)) begin
+						if(KATKFSM == 10'd8) begin
+							KATKFSM <= 10'd1;
+						end else begin
+							KATKFSM <= KATKFSM + 10'd1;
+						end
+					end
+				end else begin
+					ATK_COUNT <= 0;
+					KATKFSM <= 10'd0;
+				end
+			  
+			  
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			//STAYING STILL KIRBY
 			  if (keycode == 32'd0) begin		
@@ -2572,16 +2717,16 @@ block204 = 1'd0;
 			  
 			  
 			  case (healthstate)
-					healthidle: begin
-						health <= health - 1;
+					healthidle: begin   //d0
 						hurtflag <= 0;
-						if(SPIKE )) begin
-								healthstate <= 1;
+						if(SPIKE ) begin
+							health <= health - 1;
+							healthstate <= 1;
 						end
 						healthstate <= healthwait;
 					end
 					
-					healthwait: begin
+					healthwait: begin    //d1
 						hurtflag <= 1;
 						if(hurtcounter <= 30) begin
 							hurtcounter <= hurtcounter + 1;
@@ -2596,26 +2741,302 @@ block204 = 1'd0;
 			  
 			  
 			  
+			  case (bstate) 
+					6'd0: begin				//lets make it start offscreen to the bottom to avoid potential glitch hits. 
+						boss_X_Pos <= 16'd280;
+						boss_Y_Pos <= 16'd600;
+						f0_X_Pos <= 16'd280;
+						f0_Y_Pos <= 16'd600;
+						f1_X_Pos <= 16'd280;
+						f1_Y_Pos <= 16'd600;
+						f2_X_Pos <= 16'd280;
+						f2_Y_Pos <= 16'd600;
+						
+						if(is_kirby) begin
+							bstate <= bstate + 1;
+						end
+					end
+					
+					6'd1: begin				//initial starting of the boss level ~still state
+						boss_X_Pos <= 16'd280;
+						boss_Y_Pos <= 16'd180;
+						if(bcounter <= 150) begin
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bstill_FSM == 10'd8) begin
+									bstill_FSM <= '1;
+								end else begin
+									bstill_FSM <= bstill_FSM + 1;
+								end
+							end
+						bstate <= 6'd1;
+						end else begin
+							bstill_FSM <= 0;
+							bcounter <= 16'd0;
+							bstate <= bstate + 1;
+						end
+					end
+					
+					6'd2: begin		//move from mid to left
+						bLorR <= 0;    //left
+						if(bcounter <= 110) begin  
+							boss_X_Pos <= boss_X_Pos + (~(10'd2) + 1);
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bstill_FSM == 10'd8) begin
+									bstill_FSM <= '1;
+								end else begin
+									bstill_FSM <= bstill_FSM + 1;
+								end
+							end
+						bstate <= 6'd2;
+						end else begin
+							bstill_FSM <= 0;
+							bcounter <= 16'd0;
+							bstate <= bstate + 1;
+						end
+					end
+					
+					6'd3: begin  //move for left to right
+						bLorR <= 1; //right
+						if(bcounter <= 220) begin  
+							boss_X_Pos <= boss_X_Pos + 2;
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bstill_FSM == 10'd8) begin
+									bstill_FSM <= '1;
+								end else begin
+									bstill_FSM <= bstill_FSM + 1;
+								end
+							end
+						bstate <= 6'd3;
+						end else begin
+							bstill_FSM <= 0;
+							bcounter <= 16'd0;
+							bstate <= bstate + 1;
+						end
+					end
+					
+					6'd4: begin //move right to mid
+						bLorR <= 0;    //left
+						if(bcounter <= 110) begin  
+							boss_X_Pos <= boss_X_Pos + (~(10'd2) + 1);
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bstill_FSM == 10'd8) begin
+									bstill_FSM <= '1;
+								end else begin
+									bstill_FSM <= bstill_FSM + 1;
+								end
+							end
+						bstate <= 6'd4;
+						end else begin
+							bstill_FSM <= 0;
+							bcounter <= 16'd0;
+							bstate <=  bstate + 1;
+						end
+					end
+					
+					6'd5: begin  //following Kirby
+						if(bcounter <= 450) begin
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bswoop_FSM == 10'd8) begin
+									bswoop_FSM <= '1;
+								end else begin
+									bswoop_FSM <= bswoop_FSM + 1;
+								end
+							end
+							if(boss_X_Pos > Kirby_X_Pos) begin
+								bLorR <= 0;
+								boss_X_Pos <= boss_X_Pos - 1;
+							end else if(boss_X_Pos == Kirby_X_Pos) begin 
+								boss_X_Pos <= boss_X_Pos + 0;
+							end else begin
+								bLorR <= 1;
+								boss_X_Pos <= boss_X_Pos + 1;
+							end
+							
+							if(boss_Y_Pos > Kirby_Y_Pos) begin
+								boss_Y_Pos <= boss_Y_Pos - 1;
+							end else if(boss_Y_Pos == Kirby_Y_Pos) begin 
+								boss_Y_Pos <= boss_Y_Pos + 0;
+							end else begin
+								boss_Y_Pos <= boss_Y_Pos + 1;
+							end
+						bstate <= 6'd5;
+						end else begin
+							bswoop_FSM <= 0;
+							bcounter <= 16'd0;
+							bstate <= bstate + 1;
+						end
+					end
+					
+					
+					6'd6: begin  //return to the middle
+							if(boss_X_Pos > 16'd280) begin
+								boss_X_Pos <= boss_X_Pos - 1;
+							end else if(boss_X_Pos == 16'd280) begin 
+								boss_X_Pos <= boss_X_Pos + 0;
+							end else begin
+								boss_X_Pos <= boss_X_Pos + 1;
+							end
+							
+							if(boss_Y_Pos > 16'd180) begin
+								boss_Y_Pos <= boss_Y_Pos - 1;
+							end else if(boss_Y_Pos == 16'd180) begin 
+								boss_Y_Pos <= boss_Y_Pos + 0;
+							end else begin
+								boss_Y_Pos <= boss_Y_Pos + 1;
+							end
+							
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bstill_FSM == 10'd8) begin
+									bstill_FSM <= '1;
+								end else begin
+									bstill_FSM <= bstill_FSM + 1;
+								end
+							end
+							
+							if((boss_Y_Pos == 16'd180) && (boss_X_Pos == 16'd280)) begin
+								bstill_FSM <= 0;
+								bstate <= bstate + 1;
+								bcounter <= 0;
+							end
+					end
+					
+					6'd7: begin   //start animation sequence for the fireballs 
+						f0_X_Pos <= 16'd280;
+						f0_Y_Pos <= 16'd180;
+						f1_X_Pos <= 16'd280;
+						f1_Y_Pos <= 16'd180;
+						f2_X_Pos <= 16'd280;
+						f2_Y_Pos <= 16'd180;
+						if(bcounter <= 100) begin
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+								if(bmid_FSM == 10'd8) begin
+										bmid_FSM <= '1;
+									end else begin
+										bmid_FSM <= bmid_FSM + 1;
+									end
+							end
+						end else begin
+							bmid_FSM <= 0;
+							bcounter <= 0;
+							bstate <= bstate + 1;
+						end
+					end
+					
+					6'd8: begin
+
+						if(bcounter <= 400) begin
+							bcounter <= bcounter + 1;
+							if((bcounter%(8) == 0) && (bcounter !== 0)) begin
+									if(bfire_FSM == 10'd8) begin
+										bfire_FSM <= '1;
+									end else begin
+										bfire_FSM <= bfire_FSM + 1;
+									end
+							end
+							if((bcounter%(12) == 0) && (bcounter !== 0)) begin
+								if(bbcounter >= 4) begin
+									bbcounter <= 1;
+								end else begin
+									bbcounter <= bbcounter + 1;
+								end
+							end
+							if (bbcounter == 1) begin
+								f0_X_Pos <= f0_X_Pos + 7;
+								f0_Y_Pos <= f0_Y_Pos + 7;
+								f1_X_Pos <= f1_X_Pos - 7;
+								f1_Y_Pos <= f1_Y_Pos - 7;
+								f2_X_Pos <= f2_X_Pos + 7;
+								f2_Y_Pos <= f2_Y_Pos - 7;
+							end else if (bbcounter == 2) begin
+								f0_X_Pos <= f0_X_Pos + 7;
+								f0_Y_Pos <= f0_Y_Pos + 0;
+								f1_X_Pos <= f1_X_Pos - 0;
+								f1_Y_Pos <= f1_Y_Pos - 7;
+								f2_X_Pos <= f2_X_Pos - 7;
+								f2_Y_Pos <= f2_Y_Pos + 7;
+							end else if (bbcounter == 3) begin
+								f0_X_Pos <= f0_X_Pos + 0;
+								f0_Y_Pos <= f0_Y_Pos + 7;
+								f1_X_Pos <= f1_X_Pos - 0;
+								f1_Y_Pos <= f1_Y_Pos - 7;
+								f2_X_Pos <= f2_X_Pos + 7;
+								f2_Y_Pos <= f2_Y_Pos - 7;
+							end else if (bbcounter == 4) begin
+								f0_X_Pos <= f0_X_Pos + 7;
+								f0_Y_Pos <= f0_Y_Pos - 7;
+								f1_X_Pos <= f1_X_Pos - 7;
+								f1_Y_Pos <= f1_Y_Pos + 7;
+								f2_X_Pos <= f2_X_Pos + 7;
+								f2_Y_Pos <= f2_Y_Pos - 0;
+							end
+							
+							
+							if((f0_X_Pos <= 10) || (f0_X_Pos >= 16'd640) || (f0_Y_Pos == 0) || (f0_Y_Pos == 16'd479)) begin
+									f0_X_Pos <= 16'd280;
+									f0_Y_Pos <= 16'd180;
+							end
+							
+							if((f1_X_Pos <= 10) || (f1_X_Pos >= 16'd640) || (f1_Y_Pos == 0) || (f1_Y_Pos == 16'd479)) begin
+									f1_X_Pos <= 16'd280;
+									f1_Y_Pos <= 16'd180;
+							end
+							
+							if((f2_X_Pos <= 10) || (f2_X_Pos >= 16'd640) || (f2_Y_Pos == 0) || (f2_Y_Pos == 16'd479)) begin
+									f2_X_Pos <= 16'd280;
+									f2_Y_Pos <= 16'd180;
+							end
+							
+							
+						end else begin
+							f0_X_Pos <= 16'd280;
+							f0_Y_Pos <= 16'd600;
+							f1_X_Pos <= 16'd280;
+							f1_Y_Pos <= 16'd600;
+							f2_X_Pos <= 16'd280;
+							f2_Y_Pos <= 16'd600;
+							bfire_FSM <= 0;
+							bbcounter <= 16'd0;
+							bcounter <= 16'd0;
+							bstate <= 6'd1;
+						end
+					end 
+					
+					
+					
+			  endcase
+			  
+			  
+			  
+			  
+			  
 			  case (waddle0state)
 					waddle0walkright: begin 
 						if(waddle0attacked) begin
 							waddle0_right_count <= 0;
 							waddle0_right_FSM <= 0;
-							waddle0state <= waddle0hit:
+							waddle0state <= waddle0hit;
 						end
-						waddle_X_Pos <= waddle_X_Pos + 1 + move_x;
+						waddle0_LorR <= 1'b1;
+						waddle0_X_Pos <= waddle0_X_Pos + 1 + move_x;
 						if(waddle0_right_count <= 150) begin
 							waddle0_right_count <= waddle0_right_count + 1;
 							if((waddle0_right_count%(8) == 0) && (waddle0_right_count !== 0)) begin
-								if(waddle0_right_FSM == 10'd8) begin
-									waddle0_right_FSM <= 10'd1;
+								if(waddle0_FSM == 10'd8) begin
+									waddle0_FSM <= 10'd1;
 								end else begin 
-									waddle0_right_FSM <=  waddle0_right_FSM + 10'd1;
+									waddle0_FSM <=  waddle0_FSM + 10'd1;
 								end
 							end	
 							waddle0state <= waddle0walkright;
 						end else begin
-							waddle0_right_FSM <= 0;
+							waddle0_FSM <= 0;
 							waddle0_right_count <= 0;
 							waddle0state <= waddle0walkleft;
 						end
@@ -2626,21 +3047,22 @@ block204 = 1'd0;
 						if(waddle0attacked) begin
 							waddle0_left_count <= 0;
 							waddle0_left_FSM <= 0;
-							waddle0state <= waddle0hit:
+							waddle0state <= waddle0hit;
 						end
-						waddle_X_Pos <= waddle_X_Pos + 1 + move_x;
+						waddle0_LorR <= 1'b0;
+						waddle0_X_Pos <= waddle0_X_Pos - 1 + move_x;
 						if(waddle0_left_count <= 150) begin
 							waddle0_left_count <= waddle0_left_count + 1;
 							if((waddle0_left_count%(8) == 0) && (waddle0_left_count !== 0)) begin
-								if(waddle0_left_FSM == 10'd8) begin
-									waddle0_left_FSM <= 10'd1;
+								if(waddle0_FSM == 10'd8) begin
+									waddle0_FSM <= 10'd1;
 								end else begin 
-									waddle0_left_FSM <=  waddle0_left_FSM + 10'd1;
+									waddle0_FSM <=  waddle0_FSM + 10'd1;
 								end
 							end	
 							waddle0state <= waddle0walkleft;
 						end else begin
-							waddle0_left_FSM <= 0;
+							waddle0_FSM <= 0;
 							waddle0_left_count <= 0;
 							waddle0state <= waddle0walkright;
 						end
@@ -2658,11 +3080,11 @@ block204 = 1'd0;
 					
 					
 					waddle0dead: begin
-						waddle_X_Pos <= 16'd135;
-						waddle_Y_Pos <= 16'd616;
+						waddle0_X_Pos <= 16'd135;
+						waddle0_Y_Pos <= 16'd616;
 						if(Reset) begin
-							waddle_X_Pos <= 16'd135;
-							waddle_Y_Pos <= 16'd416;
+							waddle0_X_Pos <= 16'd135;
+							waddle0_Y_Pos <= 16'd416;
 							waddle0state <= waddle0walkright;
 						end
 					end
@@ -2696,8 +3118,88 @@ block204 = 1'd0;
 					else 
 						Kirby_Y_Pos <= Kirby_Y_Pos + Kirby_Y_Step;
 			  end
+			  
+
+			  
+			  case (atkstate)
+					8'd0: begin
+						atk_X_Pos <= Kirby_X_Pos;
+						atk_Y_Pos <= Kirby_Y_Pos;
+						atkFSM <= 0;
+						if(A) begin
+							atk_enable <= 1;
+							if(LorR)   begin//if kirby faces rightwards
+								atkstate <= atkstate + 1;
+							end else begin
+								atkstate <= atkstate + 2;
+							end
+						end
+					end
+					
+					
+					8'd1: begin		//throw towards the right (A)
+						atk_enable <= 1;
+						if(atk_X_Pos < 16'd660) begin
+							atk_X_Pos <= atk_X_Pos + 16'd4;
+							if(atkcount <= 10'hFF) begin
+								atkcount <= atkcount + 1;
+							end else begin
+								atkcount <= 1;
+							end
+							if((atkcount%(5) == 0) && (atkcount !== 0)) begin
+								if(atkFSM == 10'd5) begin
+									atkFSM <= 10'd1;
+								end else begin
+									atkFSM <= atkFSM + 10'd1;
+								end
+							end
+						atkstate <= 8'd1;
+						end else begin
+							atkcount <= 0;
+							atkFSM <= 0;
+							atk_X_Pos <= atk_X_Pos + 0;
+							atkstate <= atkstate + 2;
+						end
+					end
+					
+					
+					8'd2: begin   //throw towards the left (B)
+						atk_enable <= 1;
+						if((atk_X_Pos >= 16'd5) && (atk_X_Pos < 16'd649)) begin
+							atk_X_Pos <= atk_X_Pos + (~(16'd4) + 1);
+							if(atkcount <= 10'hFF) begin
+								atkcount <= atkcount + 1;
+							end else begin
+								atkcount <= 1;
+							end
+							if((atkcount%(5) == 0) && (atkcount !== 0)) begin
+								if(atkFSM == 10'd5) begin
+									atkFSM <= 10'd1;
+								end else begin
+									atkFSM <= atkFSM + 10'd1;
+								end
+							end
+						end else begin
+							atkcount <= 0;
+							atkFSM <= 0;
+							atk_X_Pos <= atk_X_Pos + 0;
+							atkstate <= atkstate + 1;
+						end
+					end
+					
+					
+					8'd3: begin 	
+						atk_enable <= 0;
+						atkstate <= 8'd0;
+					end
+					
+			  endcase
+			  
+			  
+			  
+			  
 			  if ( L ) begin  //occurs when you only press LEFT
-					if((Kirby_X_Pos <= xmin_line) && (ref_x >= 10'd500)) begin
+					if((Kirby_X_Pos <= xmin_line) && (ref_x >= 10'd500) && (is_block)) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						ref_x <= ref_x - 1;
 						move_x <= Kirby_X_Step;
@@ -2919,12 +3421,12 @@ block204 = 1'd0;
 					end
 			  end
 			 else  if ( R ) begin  //occurs when you only press RIGHT
-					if((Kirby_X_Pos >= xmax_line) && (ref_x <= 10'd1000)) begin
+					if((Kirby_X_Pos >= xmax_line) && (ref_x <= 10'd1000) && (is_block)) begin
 						Kirby_X_Pos <= Kirby_X_Pos + 0;
 						ref_x <= ref_x + 1;
 						move_x <= ((~Kirby_X_Step) + 1);
 						
-						waddle_X_Pos = waddle_X_Pos + ((~Kirby_X_Step) + 1);
+						//waddle0_X_Pos = waddle_X_Pos + ((~Kirby_X_Step) + 1);
 						
 						block0_X_Pos = block0_X_Pos + ((~Kirby_X_Step) + 1);
 						block1_X_Pos = block1_X_Pos + ((~Kirby_X_Step) + 1);
@@ -3151,6 +3653,8 @@ block204 = 1'd0;
 	 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
   	  always_comb
     begin
+			BATKADDR = '0;
+			ATKADDR = '0;
 			WADDR = '0;
 			ADDR = '0;
 			KADDR = '0;
@@ -3158,47 +3662,53 @@ block204 = 1'd0;
 			col = '0;
 			temp1 = '0;
 			temp2 = '0;
-			if(is_waddle_temp) 
+			if(is_atk_temp)
 			begin
-				if(waddle0_right_FSM != 10'd1) begin
+				if(KATKFSM == 10'd1) begin			//attack animation				
 					row = 0;
 					col = 0;
-				end else if(waddle0_FSM != 10'd2) begin
+				end else if(KATKFSM == 10'd2) begin
 					row = 0;
 					col = 1;
-				end else if(waddle0_FSM != 10'd3) begin
+				end else if(KATKFSM == 10'd3) begin
 					row = 0;
-					col = 2;
-				end else if(waddle0_FSM != 10'd4) begin
+					col = 1;
+				end else if(KATKFSM == 10'd4) begin
 					row = 0;
-					col = 3;
-				end else if(waddle0_FSM != 10'd5) begin
+					col = 1;
+				end else if(KATKFSM == 10'd5) begin
 					row = 0;
-					col = 4;
-				end else if(waddle0_FSM != 10'd6) begin
-					row = 0;
-					col = 5;
-				end else if(waddle0_FSM != 10'd7) begin
-					row = 0;
-					col = 6;
-				end else if(waddle0_FSM != 10'd8) begin
-					row = 0;
-					col = 7;
-				end else if(waddle0_hit_count != 10'd0)
-					row = 0;
-					col = 9;
+					col = 1;
 				end
-				if(waddle0_LorR) begin			//if kirby is floating faced right
-					temp2 = '0;
-					temp1 = (DrawY - waddle0_Y_Pos);
-					WADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - waddle0_X_Pos);
-				end else begin			//if kirby is floating faced left
-					temp2 = '0;
-					temp1 = (DrawY - waddle0_Y_Pos); 
-					WADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - waddle0_X_Pos);
+				temp2 = '0;
+				temp1 = (DrawY - atk_Y_Pos);
+				ATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - atk_X_Pos);	
+			end 
+			
+			
+	/*		
+			if(boss) begin
+				if(bstill_FSM == 10'd1) begin			//attack animation				
+					row = 0;
+					col = 0;
+				end else if(bstill_FSM == 10'd2) begin
+					row = 0;
+					col = 1;
+				end else if(bstill_FSM == 10'd3) begin
+					row = 0;
+					col = 1;
+				end else if(bstill_FSM == 10'd4) begin
+					row = 0;
+					col = 1;
+				end else if(bstill_FSM == 10'd5) begin
+					row = 0;
+					col = 1;
 				end
-				
+				temp2 = '0;
+				temp1 = (DrawY - atk_Y_Pos);
+				KADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - atk_X_Pos);	
 			end
+	*/		
 			
 			
 			if(is_kirbysub) 
@@ -3253,7 +3763,31 @@ block204 = 1'd0;
 				end else if(REGWALK_FSM == 10'd8) begin
 					row = 0;
 					col = 7;
-					
+				//--------------------------------------------------
+				end else if(KATKFSM == 10'd1) begin
+					row = 1;
+					col = 0;
+				end else if(KATKFSM == 10'd2) begin
+					row = 1;
+					col = 1;
+				end else if(KATKFSM == 10'd3) begin
+					row = 1;
+					col = 2;
+				end else if(KATKFSM == 10'd4) begin
+					row = 1;
+					col = 3;
+				end else if(KATKFSM == 10'd5) begin
+					row = 1;
+					col = 4;
+				end else if(KATKFSM == 10'd6) begin
+					row = 1;
+					col = 3;
+				end else if(KATKFSM == 10'd7) begin
+					row = 1;
+					col = 2;
+				end else if(KATKFSM == 10'd8) begin
+					row = 1;
+					col = 1;
 				//--------------------------------------------------
 				end else if(STILL_FSM == 10'd1) begin
 					row = 2;
@@ -3297,6 +3831,51 @@ block204 = 1'd0;
 		  
 if(is_block == 1'b1)
 begin
+
+			
+			if(is_waddle0_temp) 
+			begin
+				if(waddle0_FSM == 10'd1) begin
+					row = 0;
+					col = 0;
+				end else if(waddle0_FSM == 10'd2) begin
+					row = 0;
+					col = 1;
+				end else if(waddle0_FSM == 10'd3) begin
+					row = 0;
+					col = 2;
+				end else if(waddle0_FSM == 10'd4) begin
+					row = 0;
+					col = 3;
+				end else if(waddle0_FSM == 10'd5) begin
+					row = 0;
+					col = 4;
+				end else if(waddle0_FSM == 10'd6) begin
+					row = 0;
+					col = 5;
+				end else if(waddle0_FSM == 10'd7) begin
+					row = 0;
+					col = 6;
+				end else if(waddle0_FSM == 10'd8) begin
+					row = 0;
+					col = 7;
+				end else if(waddle0_hit_count != 10'd0) begin
+					row = 0;
+					col = 9;
+				end
+				if(!waddle0_LorR) begin			//if kirby is floating faced right
+					temp2 = '0;
+					temp1 = (DrawY - waddle0_Y_Pos);
+					WADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - waddle0_X_Pos);
+				end else begin			//if kirby is floating faced left
+					temp2 = '0;
+					temp1 = (DrawY - waddle0_Y_Pos); 
+					WADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - waddle0_X_Pos);
+				end
+				
+			end
+			
+
 		
 if(block0) begin
       row = 20;
@@ -3534,8 +4113,8 @@ end else if(block46) begin
       temp1 = (DrawY - block46_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block46_X_Pos);
 end else if(block47) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block47_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block47_X_Pos);
 end else if(block48) begin
@@ -3604,8 +4183,8 @@ end else if(block60) begin
       temp1 = (DrawY - block60_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block60_X_Pos);
 end else if(block61) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block61_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block61_X_Pos);
 end else if(block62) begin
@@ -3679,8 +4258,8 @@ end else if(block75) begin
       temp1 = (DrawY - block75_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block75_X_Pos);
 end else if(block76) begin
-      row = 18;
-      col = 12;
+      row = 20;
+      col = 5;
       temp1 = (DrawY - block76_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block76_X_Pos);
 end else if(block77) begin
@@ -3754,8 +4333,8 @@ end else if(block90) begin
       temp1 = (DrawY - block90_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block90_X_Pos);
 end else if(block91) begin
-      row = 18;
-      col = 13;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block91_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block91_X_Pos);
 end else if(block92) begin
@@ -3774,8 +4353,8 @@ end else if(block94) begin
       temp1 = (DrawY - block94_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block94_X_Pos);
 end else if(block95) begin
-      row = 18;
-      col = 12;
+      row = 21;
+      col = 4;
       temp1 = (DrawY - block95_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block95_X_Pos);
 end else if(block96) begin
@@ -3984,23 +4563,23 @@ end else if(block136) begin
       temp1 = (DrawY - block136_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block136_X_Pos);
 end else if(block137) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block137_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block137_X_Pos);
 end else if(block138) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 4;
       temp1 = (DrawY - block138_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block138_X_Pos);
 end else if(block139) begin
-      row = 18;
-      col = 11;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block139_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block139_X_Pos);
 end else if(block140) begin
-      row = 18;
-      col = 12;
+      row = 21;
+      col = 3;
       temp1 = (DrawY - block140_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block140_X_Pos);
 end else if(block141) begin
@@ -4089,8 +4668,8 @@ end else if(block157) begin
       temp1 = (DrawY - block157_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block157_X_Pos);
 end else if(block158) begin
-      row = 18;
-      col = 14;
+      row = 23;
+      col = 3;
       temp1 = (DrawY - block158_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + 31 + (temp1 << 9) - (DrawX - block158_X_Pos);
 end else if(block159) begin
@@ -4309,7 +4888,7 @@ end else if(block201) begin  //sky1
       temp1 = (DrawY - block201_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block201_X_Pos) + rotate;
 end else if(block202) begin  //ground1
-      row = 3;
+      row = 0;
       col = 0;
       temp1 = (DrawY - block202_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block202_X_Pos);
@@ -4319,12 +4898,11 @@ end else if(block203) begin  //sky2
       temp1 = (DrawY - block203_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block203_X_Pos);
 end else if(block204) begin  //ground1 shifted over
-      row = 3;
+      row = 0;
       col = 0;
       temp1 = (DrawY - block204_Y_Pos);
       ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block204_X_Pos);
-	end	
-		  end else 
+	end else 
 		  begin
             // Background with nice color gradient
 				row = 0;
@@ -4337,7 +4915,234 @@ end else if(block204) begin  //ground1 shifted over
             Blue = 8'h7f - {1'b0, DrawX[9:3]}; */
         end
 	end
-  
+if(is_kirby) begin
+	
+	
+		if(boss) begin
+			if(bstill_FSM == 1) begin
+				row = 2;
+				col = 0;
+			end else if (bstill_FSM == 2) begin
+				row = 2;
+				col = 3;
+			end else if (bstill_FSM == 3) begin
+				row = 2;
+				col = 6;
+			end else if (bstill_FSM == 4) begin
+				row = 2;
+				col = 9;
+			end else if (bstill_FSM == 5) begin
+				row = 2;
+				col = 12;
+			end else if (bstill_FSM == 6) begin
+				row = 5;
+				col = 0;
+			end else if (bstill_FSM == 7) begin
+				row = 5;
+				col = 3;
+			end else if (bstill_FSM == 8) begin
+				row = 5;
+				col = 6;
+			end else if (bstill_FSM == 9) begin
+				row = 5;
+				col = 9;
+			end else if (bstill_FSM == 10) begin
+				row = 5;
+				col = 12;
+				
+			
+			end else if (bmid_FSM == 1) begin
+				row = 8;
+				col = 0;
+			end else if (bmid_FSM == 2) begin
+				row = 8;
+				col = 3;
+			end else if (bmid_FSM == 3) begin
+				row = 8;
+				col = 6;
+			end else if (bmid_FSM == 4) begin
+				row = 8;
+				col = 9;
+			end else if (bmid_FSM == 5) begin
+				row = 8;
+				col = 12;
+			end else if (bmid_FSM == 6) begin
+				row = 8;
+				col = 9;
+			end else if (bmid_FSM == 7) begin
+				row = 8;
+				col = 6;
+			end else if (bmid_FSM == 8) begin
+				row = 8;
+				col = 3;
+				
+			
+			end else if (bfire_FSM == 1) begin
+				row = 8;
+				col = 0;
+			end else if (bfire_FSM == 2) begin
+				row = 8;
+				col = 3;
+			end else if (bfire_FSM == 3) begin
+				row = 8;
+				col = 6;
+			end else if (bfire_FSM == 4) begin
+				row = 8;
+				col = 9;
+			end else if (bfire_FSM == 5) begin
+				row = 8;
+				col = 12;
+			end else if (bfire_FSM == 6) begin
+				row = 8;
+				col = 9;
+			end else if (bfire_FSM == 7) begin
+				row = 8;
+				col = 6;
+			end else if (bfire_FSM == 8) begin
+				row = 8;
+				col = 3;
+				
+				
+			end else if (bswoop_FSM == 1) begin
+				row = 2;
+				col = 0;
+			end else if (bswoop_FSM == 2) begin
+				row = 2;
+				col = 3;
+			end else if (bswoop_FSM == 3) begin
+				row = 2;
+				col = 6;
+			end else if (bswoop_FSM == 4) begin
+				row = 2;
+				col = 9;
+			end else if (bswoop_FSM == 5) begin
+				row = 5;
+				col = 12;
+			end else if (bswoop_FSM == 6) begin
+				row = 5;
+				col = 3;
+			end else if (bswoop_FSM == 7) begin
+				row = 5;
+				col = 3;
+			end else begin
+				row = 2;
+				col = 0;
+			end
+				
+			if(!bLorR) begin			//if boss is floating faced right
+				temp2 = '0;
+				temp1 = (DrawY - boss_Y_Pos);
+				WADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - boss_X_Pos);
+			end else begin			//if boss is floating faced left
+				temp2 = '0;
+				temp1 = (DrawY - boss_Y_Pos); 
+				WADDR = (((row << 5) << 9) + (col << 5)) + 95 + (temp1 << 9) - (DrawX - boss_X_Pos);
+			end
+		end
+	
+	
+	
+	
+
+	if(f0 && (bbcounter == 1)) begin
+		row = 0;
+		col = 0;
+		temp1 = (DrawY - f0_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f0_X_Pos);
+	end else if (f0 && (bbcounter == 2)) begin
+		row = 0;
+		col = 1;
+		temp1 = (DrawY - f0_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f0_X_Pos);
+	end else if (f0 && (bbcounter == 2)) begin
+		row = 0;
+		col = 2;
+		temp1 = (DrawY - f0_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f0_X_Pos);
+	end else if (f0 && (bbcounter == 2)) begin
+		row = 0;
+		col = 3;
+		temp1 = (DrawY - f0_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f0_X_Pos);
+	end
+	
+	if(f1 && (bbcounter == 1)) begin
+		row = 0;
+		col = 0;
+		temp1 = (DrawY - f1_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f1_X_Pos);
+	end else if (f1 && (bbcounter == 2)) begin
+		row = 0;
+		col = 1;
+		temp1 = (DrawY - f1_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f1_X_Pos);
+	end else if (f1 && (bbcounter == 2)) begin
+		row = 0;
+		col = 2;
+		temp1 = (DrawY - f1_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f1_X_Pos);
+	end else if (f1 && (bbcounter == 2)) begin
+		row = 0;
+		col = 3;
+		temp1 = (DrawY - f1_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f1_X_Pos);
+	end
+	
+	if(f2 && (bbcounter == 1)) begin
+		row = 0;
+		col = 0;
+		temp1 = (DrawY - f2_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f2_X_Pos);
+	end else if (f2 && (bbcounter == 2)) begin
+		row = 0;
+		col = 1;
+		temp1 = (DrawY - f2_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f2_X_Pos);
+	end else if (f2 && (bbcounter == 2)) begin
+		row = 0;
+		col = 2;
+		temp1 = (DrawY - f2_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f2_X_Pos);
+	end else if (f2 && (bbcounter == 2)) begin
+		row = 0;
+		col = 3;
+		temp1 = (DrawY - f2_Y_Pos);
+	   BATKADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - f2_X_Pos);
+	end
+	
+	
+	
+	
+	if(block205) begin   // boss background block (first half)
+      row = 4;
+		col = 0;
+		temp1 = (DrawY - block205_Y_Pos);
+	   ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block205_X_Pos);
+	
+	end else if(block206) begin  //boss background block (second half)
+		row = 48;
+		col = 0;
+		temp1 = (DrawY - block206_Y_Pos);
+	   ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block206_X_Pos);
+	end else if(block207) begin  //boss background block (third part)
+		row = 48;
+		col = 4;
+		temp1 = (DrawY - block207_Y_Pos);
+	   ADDR = (((row << 5) << 9) + (col << 5)) + (temp1 << 9) + (DrawX - block207_X_Pos);
+	end else begin
+            // Background with nice color gradient
+				row = 0;
+				col = 0;
+				temp2 = 0;
+				temp1 = 0;
+				ADDR = 0;
+            /*Red = 8'h3f; 
+            Green = 8'h00;
+            Blue = 8'h7f - {1'b0, DrawX[9:3]}; */
+   end
+end
+
+end
 	 
 endmodule
 

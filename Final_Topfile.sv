@@ -46,7 +46,7 @@ module Final_Topfile( input               CLOCK_50,
                                  DRAM_CLK,     //SDRAM Clock
 				 output logic 			SRAM_CE_N, SRAM_CE_UB, SRAM_LB_N, SRAM_OE_N, SRAM_WE_N,
 				 output logic [19:0] SRAM_ADDR,
-				 inout  wire  [15:0] SRAM_DQ,
+/*inout  wire*/input logic  [15:0] SRAM_DQ,
 				 
 				 output logic  		FL_WE_N,      // Write Enable 
 				 output        		FL_WP_N,      // Write Protect / Programming Acceleration
@@ -58,18 +58,19 @@ module Final_Topfile( input               CLOCK_50,
 				 output logic [22:0] FL_ADDR       // Address bus (23 Bits)
                     );
     
-    logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_waddle_temp, is_block_temp, is_background_temp, is_attack_temp;
-	 logic  is_block,  is_kirby, is_attack, is_nothing;
+    logic Reset_h, Clk, FAST_CLK, is_kirbysub, is_testblock, LorR, is_background, is_kirby_temp, is_waddle0_temp, is_atk_temp, is_block_temp, is_background_temp, is_attack_temp, is_flame;
+	 logic  is_block,  is_kirby, is_attack, is_nothing, boss;
 	 logic [31:0] keycode;
-    logic [7:0] Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue;
+    logic [7:0] Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue, ared, agreen, ablue, bred, bgreen, bblue;
 	 logic [9:0] DrawX, DrawY, FLOAT_FSM, REGWALK_FSM, STILL_FSM;
 	 logic [15:0] Kirby_X_Pos, Kirby_Y_Pos, Block_X_Pos, Block_Y_Pos;
 	 logic [7:0] index;
 	 logic [7:0] test;
 	 logic [4:0] which;
+	 logic [3:0] health;
 
-	 logic [19:0] KADDR, WADDR;
-	 logic [7:0] kirbydata, waddledata;
+	 logic [19:0] KADDR, WADDR, ATKADDR, BATKADDR;
+	 logic [7:0] kirbydata, waddledata, atkdata, Batkdata;
     
     assign Clk = CLOCK_50;
     always_ff @ (posedge Clk) begin
@@ -81,6 +82,7 @@ module Final_Topfile( input               CLOCK_50,
     logic hpi_r, hpi_w, hpi_cs, hpi_reset;
 	 logic [15:0] Data_from_SRAM, Data_to_SRAM;
 	
+	 logic BOSSTIME;
     
     // Interface between NIOS II and EZ-OTG chip
     hpi_io_intf hpi_io_inst(
@@ -148,11 +150,13 @@ module Final_Topfile( input               CLOCK_50,
 														.VGA_B,
 														.is_kirby_temp, 
 														.is_block_temp, 
-														.is_waddle_temp,
+														.is_waddle0_temp,
 														.is_kirby, 
 														.is_block,
 														.is_attack,
 														.is_background,
+														.is_atk_temp,
+														.is_flame,
 														//.is_nothing,
 														.Red,
 														.Green,
@@ -162,7 +166,19 @@ module Final_Topfile( input               CLOCK_50,
 														.kblue,
 														.wred,
 														.wgreen,
-														.wblue
+														.wblue,
+														.kirbydata,
+														.atkdata,
+														.ared,
+														.agreen,
+														.ablue,
+														.BOSSTIME,
+														.boss,
+														.bred,
+														.bgreen,
+														.bblue,
+														.Batkdata,
+														.waddledata
 	 );
     
     // Which signal should be frame_clk?
@@ -174,10 +190,11 @@ module Final_Topfile( input               CLOCK_50,
 							.DrawY,
 							.is_attack_temp,
 							.is_kirby_temp,
-							.is_waddle_temp,
+							.is_waddle0_temp,
 							.is_block_temp,
 							.is_testblock,
 							.is_kirbysub,
+							.is_flame,
 							.keycode,
 							.Kirby_X_Pos, 
 							.Kirby_Y_Pos,
@@ -185,9 +202,15 @@ module Final_Topfile( input               CLOCK_50,
 							.FLOAT_FSM,
 							.is_kirby,
 							.is_block,
+							.is_atk_temp,
 							.ADDR(SRAM_ADDR),
 							.KADDR,
-							.WADDR
+							.WADDR,
+							.ATKADDR,
+							.BOSSTIME,
+							.boss,
+							.BATKADDR,
+							.health
 							
 						
 	 );
@@ -234,15 +257,29 @@ module Final_Topfile( input               CLOCK_50,
 										.Blue(kblue)
 	 );
 	 
-	 color_mapper_two OCMquantizer(
+	 color_mapper_two OCMquantizer2(
 										.index(waddledata),
 										.Red(wred),
 										.Green(wgreen),
 										.Blue(wblue)
 	 );
 	 
+	  color_mapper_two OCMquantizer3(
+										.index(atkdata),
+										.Red(ared),
+										.Green(agreen),
+										.Blue(ablue)
+	 );
 	 
-	 Mem2IO sram(
+	 	color_mapper_two OCMquantizer4(
+										.index(Batkdata),
+										.Red(bred),
+										.Green(bgreen),
+										.Blue(bblue)
+	 );
+	 
+	 
+	/* Mem2IO sram(
 					.Clk,
 					.Reset(Reset_h),
 					.ADDR(SRAM_ADDR),
@@ -256,7 +293,7 @@ module Final_Topfile( input               CLOCK_50,
 					.Data_out(),
 					.Data_to_SRAM(Data_to_SRAM),
 					.out(test)
-	 );
+	 ); */
 	 
 	 SRAMPLL fastclock(
 						.areset(),
@@ -276,6 +313,16 @@ module Final_Topfile( input               CLOCK_50,
 							.data_Out(waddledata)
 	);
 	 
+	 
+	 atkRAM ARAM (	.Clk,
+							.R_ADDR(ATKADDR),
+							.data_Out(atkdata)
+	);
+	 
+	 bossatkRAM BARAM (	.Clk,
+							.R_ADDR(BATKADDR),
+							.data_Out(Batkdata)
+	);
     
 	/* tristate #(.N(16)) trimod(
 									.Clk(VGA_CLK),
@@ -301,9 +348,9 @@ module Final_Topfile( input               CLOCK_50,
 	 
 	 
     // Display keycode on hex display
-    HexDriver hex_inst_0 (keycode[27:24], HEX0);
-    HexDriver hex_inst_1 (keycode[31:28], HEX1);
+    HexDriver hex_inst_0 (health, HEX0);
+    HexDriver hex_inst_1 (0, HEX1);
 
-    HexDriver hex_inst_2 (keycode[11:8], HEX2);
-    HexDriver hex_inst_3 (keycode[15:12], HEX3);
+    HexDriver hex_inst_2 (0, HEX2);
+    HexDriver hex_inst_3 (0, HEX3);
 endmodule

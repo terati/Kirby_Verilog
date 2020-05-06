@@ -29,6 +29,7 @@
 module  VGA_controller (input              Clk,         // 50 MHz clock
                                            Reset,       // Active-high reset signal
 														 FAST_CLK,	  // 100 MHz clock
+														 BOSSTIME,
                         output logic       VGA_HS,      // Horizontal sync pulse.  Active low
                                            VGA_VS,      // Vertical sync pulse.  Active low
                         input             VGA_CLK,     // 25 MHz VGA clock input
@@ -38,10 +39,10 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
                         output logic [9:0] DrawX,       // horizontal coordinate
                                            DrawY,       // vertical coordinate
 												
-								output logic [7:0] VGA_R, VGA_G, VGA_B,
-								input logic		 is_kirby_temp, is_block_temp, is_waddle_temp, is_attack_temp, is_background_temp,
+								output logic [7:0] VGA_R, VGA_G, VGA_B, 
+								input logic		 is_kirby_temp, is_block_temp, is_waddle0_temp, is_attack_temp, is_background_temp, is_atk_temp, boss, is_flame,
 								output logic 		 is_kirby, is_block, is_attack, is_background,
-								input logic [7:0]  Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue
+								input logic [7:0]  Red, Green, Blue, kred, kgreen, kblue, wred, wgreen, wblue, kirbydata, atkdata, ared, agreen, ablue, bred, bgreen, bblue, Batkdata, waddledata
 								
                         );     
     
@@ -89,9 +90,23 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
 						h_counter <= h_counter_in;
 						v_counter <= v_counter_in;
 				  end
-				   is_kirby <= 1'b0; 
-					is_block <= 1'b1;
-					is_attack <= 1'b0;
+				  
+				  case(State)
+						2'd0: begin
+							is_kirby <= 1'b0; 
+							is_block <= 1'b1;
+							is_attack <= 1'b0;
+							if(BOSSTIME) begin
+								State <= State + 1;
+							end
+						end
+						
+						2'd1: begin
+							is_kirby <= 1'b1; 
+							is_block <= 1'b0;
+							is_attack <= 1'b0;
+						end
+					endcase
     end
 
     
@@ -124,21 +139,41 @@ module  VGA_controller (input              Clk,         // 50 MHz clock
             VGA_BLANK_N_in = 1'b1;
 				
 				
-
+		  VGA_R = Red;
+		  VGA_G = Green;
+		  VGA_B = Blue;
 		  
-		  if((kred != 8'haa) && (kgreen != 8'h55) && (kblue != 8'h55) && (is_kirby_temp)) begin
-			  VGA_R = kred;
-			  VGA_G = kgreen;
-			  VGA_B = kblue;
-		  else if((wred != 8'haa) && (wgreen != 8'h55) && (wblue != 8'h55) && (is_waddle_temp)) begin
+		 
+		  if((waddledata != 8'b111010)  && (is_waddle0_temp)) begin  //waddle
 			  VGA_R = wred;
 			  VGA_G = wgreen;
 			  VGA_B = wblue;
-		  end else begin 
-			  VGA_R = Red;
-			  VGA_G = Green;
-			  VGA_B = Blue;
-		  end
+		  end  
+		  
+		  if((Batkdata != 8'b111010) && (is_flame)) begin
+			  VGA_R = bred;
+			  VGA_G = bgreen;
+			  VGA_B = bblue;
+		  end 
+		  
+		  if((waddledata != 8'b111010) && (boss)) begin
+			  VGA_R = wred;
+			  VGA_G = wgreen;
+			  VGA_B = wblue;
+		  end 
+		  
+		  if((atkdata != 8'b111010) && (is_atk_temp)) begin			//atk
+			  VGA_R = ared;
+			  VGA_G = agreen;
+			  VGA_B = ablue;
+		  end 
+		  
+		  if((kirbydata != 8'b111010) && (is_kirby_temp)) begin	//kirby
+			  VGA_R = kred;
+			  VGA_G = kgreen;
+			  VGA_B = kblue;
+		  end 
+		    
 		  
 		  
     end
