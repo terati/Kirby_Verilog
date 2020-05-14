@@ -5,5 +5,5 @@ Our project for ECE385 is a basic Kirby game. This project was written in System
 
 The keyboard interfaces with the NIOS system and written in C. This code was mostly provided to use but we made some minor adjustments to enable a maximum of 4 simulataneous keypresses. 
 
-<img src="ReadmeImages/map1.PNG" height="150"><img src="ReadmeImages/map2.PNG" height="150">
+<img src="ReadmeImages/map1.PNG" height="250"><img src="ReadmeImages/map2.PNG" height="250">
 
