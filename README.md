@@ -1,6 +1,6 @@
 # ECE385_Final_Project
 
-By: Timothy Wong and Wenjie Yu
+By: Timothy Wong
 
 Demo: https://youtu.be/6eeaDSD7yt0
 
